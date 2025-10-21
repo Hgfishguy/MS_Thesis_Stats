@@ -34,3 +34,22 @@ B3_boxplot = ggplot(data = porosity_B3) +
   facet_wrap(~Date, nrow = 1) + 
   theme_bw()
 B3_boxplot
+
+# Sediment Analysis
+
+sed_data = read_excel('/Users/suzanneguy/R_Projects/MS_Thesis_Data_Analysis/MS_Thesis_Stats/Data/Sed_Analysis.xlsx')
+sed_clean = na.omit(sed_data)
+# data is read and cleaned of NAs
+
+sed_parsed = sed_clean %>%
+  mutate(Elevation = substr(Replicate, 1, 1))
+# New column created from first letter of another column
+
+sed_avg = sed_parsed %>% 
+  group_by(Date, Location, Elevation) %>%
+  summarize(mean_500um = mean(greater_500um), mean_63um = mean(greater_63um), mean_less_63um = mean(less_63um))
+sed_avg
+
+# combine avg data frames
+
+sed_por = inner_join(porosity_avg, sed_avg, by = "Date")
