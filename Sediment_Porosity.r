@@ -50,6 +50,4 @@ sed_avg = sed_parsed %>%
   summarize(mean_500um = mean(greater_500um), mean_63um = mean(greater_63um), mean_less_63um = mean(less_63um))
 sed_avg
 
-# combine avg data frames
 
-sed_por = inner_join(porosity_avg, sed_avg, by = "Date")
