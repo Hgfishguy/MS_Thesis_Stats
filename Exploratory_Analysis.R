@@ -80,9 +80,29 @@ Biomass_filtered %>%
   group_by(Month) %>%
   group_modify(~ tidy(lillie.test(.x$`Chla (ug/g)`)))
 # data VERY abnormal (p << 0.05)
+Biomass_filtered %>% levene_test(`Chla (ug/g)` ~ Month*Estuary, center = "mean")
+# variances unequal! (p << 0.05)
 
 RB_model = Biomass_filtered %>% anova_test(`Chla (ug/g)` ~ Month + Estuary, effect.size = "pes")
 get_anova_table(RB_model) %>% p_format(digits = 3)
+# both Month and Estuary seem to have an effect on Biomass (p < 0.0001)
 
+Biomass_filtered %>% group_by(Estuary) %>%
+  get_summary_stats(`Chla (ug/g)`, type = "mean_sd")
+# MI mean: 13.6, sd: 12.5
+# NI mean: 15.8, sd: 15.2
 
+Biomass_aov = aov(`Chla (ug/g)` ~ Month + Estuary, data = Biomass_filtered)
+summary(Biomass_aov)
+# base r aov to use in further analyses (same result as rstatix RCB anova)
+
+TukeyHSD(Biomass_aov, "Estuary")
+# 4.085999 difference, p = 0.0001027
+
+emmeans(Biomass_aov, pairwise ~ Estuary)
+
+Biomass_filtered %>%
+  emmeans_test(`Chla (ug/g)` ~ Estuary, p.adjust.method = "bonferroni", model = Biomass_aov)
+# emmeans difference with bonferroni correction
+# 4.04 statistic, p < 0.00001 ****
 
