@@ -15,6 +15,7 @@ PO4_data = read_excel('/Users/suzanneguy/R_Projects/MS_Thesis_Data_Analysis/MS_T
 Sediment_data = read_excel('/Users/suzanneguy/R_Projects/MS_Thesis_Data_Analysis/MS_Thesis_Stats/Data/BMA_Human_Impacts_Master_Datasheet.xlsx', sheet = 'Sediment')
 # reading in sheets by sheet
 
+
 Biomass_filtered = Biomass_data %>% filter(Site != "B3" & Site != "GI") %>%
   mutate(Month = month(Date, label = TRUE, abbr = FALSE)) %>% filter(Month != "October" & Month != "December")
 NH4_filtered = NH4_data %>% filter(Site != "B3" & Site != "GI") %>%
@@ -35,6 +36,42 @@ Sediment_filtered = Sediment_data %>% filter(Site != "B3" & Site != "GI") %>%
 # For nutrient samples, NAs in Notes column are then replaced by porewater in order to filter out ambient samples
 # the filter function cannot filter something out from NAs 
 
+# Creating a new parameter, DIN, by adding NO3 and NH4 concentrations together
+NH4_united = NH4_filtered %>% unite(col = "Marker", c(Date, Estuary, Site, Notes, Replicate), sep = "", remove = FALSE)
+NO3_united = NO3_filtered %>% unite(col = "Marker", c(Date, Estuary, Site, Notes, Replicate), sep = "", remove = FALSE)
+# First, an index column ("Marker") must be created in order to properly join datasets
+
+DIN_combined = NH4_united %>%
+  inner_join(NO3_united, by = "Marker") %>%
+  mutate(DIN_uM = Adjusted_Concentration_uM.x + Adjusted_Concentration_uM.y, Estuary = Estuary.x, Month = Month.x) 
+# Dataframes joined using "Marker" index and concentrations added together
+
+# Sediment data changed in oder to be plotted
+Sediment_longer = Sediment_filtered %>%
+  pivot_longer(cols = c(`>500um (%)`, `>63um (%)`, `<63um (%)`), names_to = "Grain Size", values_to = "Percent")
+
+
+Sediment_boxplot = ggplot(data = Sediment_longer) +
+  geom_boxplot(aes(y = Percent, x = Estuary, fill = `Grain Size`)) +
+  scale_fill_manual(values = c("gray", "beige", "chocolate4")) +
+  # geom_jitter(aes(y = Adjusted_Concentration_uM, x = Estuary), width = 0.2) +
+  facet_wrap(~Month, nrow = 1) + 
+  ylab("Grain Size (%)") +
+  xlab("Estuary") +
+  ylim(0,100) +
+  theme_bw()
+Sediment_boxplot
+
+DIN_boxplot = ggplot(data = DIN_combined) +
+  geom_boxplot(aes(y = DIN_uM, x = Estuary, fill = Estuary)) +
+  scale_fill_manual(values = c("chartreuse3", "darkturquoise"), guide = "none") +
+  # geom_jitter(aes(y = Adjusted_Concentration_uM, x = Estuary), width = 0.2) +
+  facet_wrap(~Month, nrow = 1) + 
+  ylab("DIN Concentration (μM)") +
+  xlab("Estuary") +
+  ylim(0,5000) +
+  theme_bw()
+DIN_boxplot
 
 NH4_boxplot = ggplot(data = NH4_filtered) +
   geom_boxplot(aes(y = Adjusted_Concentration_uM, x = Estuary, fill = Estuary)) +
@@ -75,6 +112,7 @@ Biomass_boxplot
 # plotting data! Notice that the jitter data points are masked by a comment
 # they were lowkey making the graphs hard to read lol
 
+
 # biomass RCB
 Biomass_filtered %>%
   group_by(Month) %>%
@@ -83,8 +121,8 @@ Biomass_filtered %>%
 Biomass_filtered %>% levene_test(`Chla (ug/g)` ~ Month*Estuary, center = "mean")
 # variances unequal! (p << 0.05)
 
-RB_model = Biomass_filtered %>% anova_test(`Chla (ug/g)` ~ Month + Estuary, effect.size = "pes")
-get_anova_table(RB_model) %>% p_format(digits = 3)
+Biomass_RB_model = Biomass_filtered %>% anova_test(`Chla (ug/g)` ~ Month + Estuary, effect.size = "pes")
+get_anova_table(Biomass_RB_model) %>% p_format(digits = 3)
 # both Month and Estuary seem to have an effect on Biomass (p < 0.0001)
 
 Biomass_filtered %>% group_by(Estuary) %>%
@@ -105,4 +143,91 @@ Biomass_filtered %>%
   emmeans_test(`Chla (ug/g)` ~ Estuary, p.adjust.method = "bonferroni", model = Biomass_aov)
 # emmeans difference with bonferroni correction
 # 4.04 statistic, p < 0.00001 ****
+
+
+# DIN RCB
+DIN_combined %>%
+  group_by(Month) %>%
+  group_modify(~ tidy(lillie.test(.x$DIN_uM)))
+# haha wow that is abnormal!
+
+DIN_combined %>% levene_test(DIN_uM ~ Month*Estuary, center = "mean")
+# variances unequal! (p << 0.05)
+
+DIN_RB_model = DIN_combined %>% anova_test(DIN_uM ~ Month + Estuary, effect.size = "pes")
+get_anova_table(DIN_RB_model) %>% p_format(digits = 3)
+# Only month seemed to have a significant affect on DIN
+
+DIN_combined %>% group_by(Estuary) %>%
+  get_summary_stats(DIN_uM, type = "mean_sd")
+# MI mean: 1186, sd: 1090
+# NI mean: 1201, sd: 1415
+
+# PO4 RCB
+PO4_filtered %>%
+  group_by(Month) %>%
+  group_modify(~ tidy(lillie.test(.x$Adjusted_Concentration_uM)))
+# haha wow that is still abnormal!
+
+PO4_filtered %>% levene_test(Adjusted_Concentration_uM ~ Month*Estuary, center = "mean")
+# variances still unequal! (p <<<<< 0.05)
+
+PO4_RB_model = PO4_filtered %>% anova_test(Adjusted_Concentration_uM ~ Month + Estuary, effect.size = "pes")
+get_anova_table(PO4_RB_model) %>% p_format(digits = 3)
+# Both Estuary and Month seemed to have a significant effect on PO4 (p << 0.05)
+
+PO4_filtered %>% group_by(Estuary) %>%
+  get_summary_stats(Adjusted_Concentration_uM, type = "mean_sd")
+# MI mean: 42.3, sd: 63.7
+# NI mean: 8.95, sd: 21.9
+
+# Sediment RCBs
+
+# >500 um
+Sediment_filtered %>%
+  group_by(Month) %>%
+  group_modify(~ tidy(lillie.test(.x$`>500um (%)`)))
+# abnormal 
+
+# >63 um
+Sediment_filtered %>%
+  group_by(Month) %>%
+  group_modify(~ tidy(lillie.test(.x$`>63um (%)`)))
+# slightly abnormal? Depends on month
+
+# >63 um
+Sediment_filtered %>%
+  group_by(Month) %>%
+  group_modify(~ tidy(lillie.test(.x$`<63um (%)`)))
+# also slightly abnormal, different months
+
+Sediment_filtered %>% levene_test(`>500um (%)` ~ Month*Estuary, center = "mean")
+# variances unequal (p < 0.05)
+Sediment_filtered %>% levene_test(`>63um (%)` ~ Month*Estuary, center = "mean")
+# variances unequal (p < 0.05)
+Sediment_filtered %>% levene_test(`<63um (%)` ~ Month*Estuary, center = "mean")
+# variances unequal (p < 0.05)
+
+Sand_RB_model = Sediment_filtered %>% anova_test(`>500um (%)` ~ Month + Estuary, effect.size = "pes")
+get_anova_table(Sand_RB_model) %>% p_format(digits = 3)
+# Both Estuary and Month seemed to have a significant effect on sand composition (p << 0.05)
+Silt_RB_model = Sediment_filtered %>% anova_test(`>63um (%)` ~ Month + Estuary, effect.size = "pes")
+get_anova_table(Silt_RB_model) %>% p_format(digits = 3)
+# Both Estuary and Month seemed to have a significant effect on silt composition (p << 0.05)
+Clay_RB_model = Sediment_filtered %>% anova_test(`<63um (%)` ~ Month + Estuary, effect.size = "pes")
+get_anova_table(Clay_RB_model) %>% p_format(digits = 3)
+# Both Estuary and Month seemed to have a significant effect on clay composition (p << 0.05)
+
+Sediment_filtered %>% group_by(Estuary) %>%
+  get_summary_stats(`>500um (%)`, type = "mean_sd")
+# MI mean: 27.8, sd: 18.3 
+# NI mean: 2.52, sd: 4.72
+Sediment_filtered %>% group_by(Estuary) %>%
+  get_summary_stats(`>63um (%)`, type = "mean_sd")
+# MI mean: 63.4, sd: 24.4
+# NI mean: 71.6, sd: 18.3
+Sediment_filtered %>% group_by(Estuary) %>%
+  get_summary_stats(`<63um (%)`, type = "mean_sd")
+# MI mean: 9.49, sd: 15.0
+# NI mean: 26.5, sd: 16.9
 
