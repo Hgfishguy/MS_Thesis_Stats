@@ -47,7 +47,7 @@ NO3_united = NO3_filtered %>% unite(col = "Marker", c(Date, Estuary, Site, Notes
 
 DIN_combined = NH4_united %>%
   inner_join(NO3_united, by = "Marker") %>%
-  mutate(DIN_uM = Adjusted_Concentration_uM.x + Adjusted_Concentration_uM.y, Estuary = Estuary.x, Month = Month.x) 
+  mutate(DIN_uM = Adjusted_Concentration_uM.x + Adjusted_Concentration_uM.y, Estuary = Estuary.x, Month = Month.x, Site = Site.x) 
 # Dataframes joined using "Marker" index and concentrations added together
 
 # Sediment data changed in order to be plottet (facors reordered as well)
@@ -240,4 +240,44 @@ Sediment_filtered %>% group_by(Estuary) %>%
   get_summary_stats(`<63um (%)`, type = "mean_sd")
 # MI mean: 9.49, sd: 15.0
 # NI mean: 26.5, sd: 16.9
+
+
+### Linear Modeling BMA Responses
+
+DIN_avg = DIN_combined %>%
+  na.omit() %>%
+  group_by(Month, Site) %>%
+  summarize(mean_DIN_uM = mean(DIN_uM), sd_DIN_um = sd(DIN_uM))
+DIN_avg
+
+Biomass_avg = Biomass_filtered %>%
+  na.omit() %>%
+  group_by(Month, Site) %>%
+  summarize(mean_Chla_ug = mean(`Chla (ug/g)`), sd_Chla_ug = sd(`Chla (ug/g)`)) %>%
+Biomass_avg
+
+PO4_avg = PO4_filtered %>%
+  na.omit() %>%
+  group_by(Month, Site) %>%
+  summarize(mean_PO4_uM = mean(Adjusted_Concentration_uM), sd_DIN_um = sd(Adjusted_Concentration_uM))
+PO4_avg
+
+Sed_avg = Sediment_filtered %>%
+  na.omit() %>%
+  group_by(Month, Site) %>%
+  summarize(mean_500um = mean(`>500um (%)`), sd_500um = sd(`>500um (%)`), 
+            mean_63um = mean(`>63um (%)`), sd_63um = sd(`>63um (%)`),
+            mean_less63um = mean(`<63um (%)`), sd_less63um = sd(`<63um (%)`))
+Sed_avg
+
+LM_data = Biomass_avg %>% 
+  left_join(DIN_avg, by = c("Month", "Site")) %>%
+  left_join(PO4_avg, by = c("Month", "Site")) %>%
+  left_join(Sed_avg, by = c("Month", "Site")) %>%
+  na.omit() %>%
+  ungroup() %>%
+  print()
+# combining all data by averaging by site/month in order to get "paired' observations
+
+
 
