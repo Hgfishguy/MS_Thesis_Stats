@@ -7,6 +7,9 @@ library(nortest) # needed for Lilliefors Test
 library(rstatix) # for statistical tests and summary tools
 library(DescTools) # ’Dunnets test for multiple comparisons of means
 library(emmeans) # for estimated marginal means and Bonferroni correction
+library(lmtest) # For Durbin-Watson statistic
+library(olsrr) # For Model selection based on R squared
+library(car) # for Partial Regression plots
 
 
 ### READING AND FILTERING
@@ -53,7 +56,8 @@ DIN_combined = NH4_united %>%
 # Sediment data changed in order to be plottet (facors reordered as well)
 Sediment_longer = Sediment_filtered %>%
   pivot_longer(cols = c(`>500um (%)`, `>63um (%)`, `<63um (%)`), names_to = "Grain Size", values_to = "Percent") %>%
-  mutate(`Grain Size` = fct_relevel(`Grain Size`, ">500um (%)", ">63um (%)", "<63um (%)"))
+  mutate(`Grain Size` = fct_relevel(`Grain Size`, ">500um (%)", ">63um (%)", "<63um (%)")) %>%
+  na.omit()
 
 
 ### VISUALIZING
@@ -247,7 +251,7 @@ Sediment_filtered %>% group_by(Estuary) %>%
 DIN_avg = DIN_combined %>%
   na.omit() %>%
   group_by(Month, Site) %>%
-  summarize(mean_DIN_uM = mean(DIN_uM), sd_DIN_um = sd(DIN_uM))
+  summarize(mean_DIN_uM = mean(DIN_uM), sd_DIN_uM = sd(DIN_uM))
 DIN_avg
 
 Biomass_avg = Biomass_filtered %>%
@@ -279,5 +283,70 @@ LM_data = Biomass_avg %>%
   print()
 # combining all data by averaging by site/month in order to get "paired' observations
 
+# Step 1: Run all possible models
+full_model = lm(mean_Chla_ug ~ mean_DIN_uM + mean_PO4_uM + mean_500um + mean_63um + mean_less63um, data = LM_data)
+all_models <- ols_step_all_possible(full_model)
+all_models
 
+all_models_df <- all_models$result
 
+best_model_info <- all_models_df %>%
+  arrange(desc(adjr)) %>%
+  slice(1)
+best_model_info
+
+selected_predictors <- best_model_info$predictors[[1]]
+
+selected_predictors_split <- unlist(strsplit(selected_predictors, " "))
+
+predictor_formula <- paste(selected_predictors_split, collapse = " + ")
+
+formula_best <- as.formula(paste("mean_Chla_ug ~", predictor_formula)) 
+
+final_model_best <- lm(formula_best, data = LM_data) 
+
+stepwise_summary <- summary(final_model_best)
+
+parameter_estimates <- coef(final_model_best)
+
+stepwise_summary
+# PO4 most significant contributor, with small (<63) grain size minorly contributing
+
+dw_stat <- dwtest(final_model_best)
+cat("Durbin-Watson Statistic:", dw_stat$statistic, "\n")
+# DW stat: 2.12
+ols_coll_diag(final_model_best)
+
+resids <- residuals(final_model_best)
+# Basic descriptive statistics
+summary(resids)
+# mean = 0.000
+
+# Normality plot of residuals
+plot(final_model_best, which = 2)
+plot(final_model_best, 1) # residual vs fitted plot.
+lillie.test(final_model_best$residuals)
+# abnormal residuals (p < 0.05)
+
+avPlots(final_model_best)
+
+plot(LM_data$mean_Chla_ug, final_model_best$fitted.values)
+
+adj_r2 <- summary(final_model_best)$adj.r.squared
+
+LM_plot = ggplot(LM_data, aes(x = mean_Chla_ug, y = final_model_best$fitted.values)) + 
+geom_point(color = "blue", size = 2) + # scatter points
+  geom_smooth(method = "lm", se = TRUE, color = "red") + # linear fit line with 95% CI
+  annotate("text",
+           x = max(LM_data$mean_Chla_ug) * 0.9,
+           y = max(final_model_best$fitted.values)*0.1, 
+           label = paste0("r\u00B2 = ", round(adj_r2, 3)), # "\u00B2" is the notation r^2
+           size = 4, # size the r-squared value is reported as
+           color = "black") +
+  labs(
+    x = "Mean Chla (ug/g)",
+    y = "Unstandardized Predicted Values",
+    title = "Actual vs Predicted Values for Chla"
+  ) +
+  theme_bw()
+LM_plot
