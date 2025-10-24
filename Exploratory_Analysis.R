@@ -1,5 +1,5 @@
 library(tidyverse) # swagalicous
-library(dplyr) # moveing verbs
+library(dplyr) # moving verbs
 library(doBy) # lowkey idk
 library(readxl) # read excel documents
 library(lubridate) # messing with dates
@@ -7,6 +7,10 @@ library(nortest) # needed for Lilliefors Test
 library(rstatix) # for statistical tests and summary tools
 library(DescTools) # ’Dunnets test for multiple comparisons of means
 library(emmeans) # for estimated marginal means and Bonferroni correction
+
+
+### READING AND FILTERING
+
 
 Biomass_data = read_excel('/Users/suzanneguy/R_Projects/MS_Thesis_Data_Analysis/MS_Thesis_Stats/Data/BMA_Human_Impacts_Master_Datasheet.xlsx', sheet = 'Biomass')
 NH4_data = read_excel('/Users/suzanneguy/R_Projects/MS_Thesis_Data_Analysis/MS_Thesis_Stats/Data/BMA_Human_Impacts_Master_Datasheet.xlsx', sheet = 'NH4')
@@ -46,15 +50,18 @@ DIN_combined = NH4_united %>%
   mutate(DIN_uM = Adjusted_Concentration_uM.x + Adjusted_Concentration_uM.y, Estuary = Estuary.x, Month = Month.x) 
 # Dataframes joined using "Marker" index and concentrations added together
 
-# Sediment data changed in oder to be plotted
+# Sediment data changed in order to be plottet (facors reordered as well)
 Sediment_longer = Sediment_filtered %>%
-  pivot_longer(cols = c(`>500um (%)`, `>63um (%)`, `<63um (%)`), names_to = "Grain Size", values_to = "Percent")
+  pivot_longer(cols = c(`>500um (%)`, `>63um (%)`, `<63um (%)`), names_to = "Grain Size", values_to = "Percent") %>%
+  mutate(`Grain Size` = fct_relevel(`Grain Size`, ">500um (%)", ">63um (%)", "<63um (%)"))
+
+
+### VISUALIZING
 
 
 Sediment_boxplot = ggplot(data = Sediment_longer) +
   geom_boxplot(aes(y = Percent, x = Estuary, fill = `Grain Size`)) +
   scale_fill_manual(values = c("gray", "beige", "chocolate4")) +
-  # geom_jitter(aes(y = Adjusted_Concentration_uM, x = Estuary), width = 0.2) +
   facet_wrap(~Month, nrow = 1) + 
   ylab("Grain Size (%)") +
   xlab("Estuary") +
@@ -111,6 +118,9 @@ Biomass_boxplot = ggplot(data = Biomass_filtered) +
 Biomass_boxplot
 # plotting data! Notice that the jitter data points are masked by a comment
 # they were lowkey making the graphs hard to read lol
+
+
+### STATISTICAL ANALYSIS
 
 
 # biomass RCB
