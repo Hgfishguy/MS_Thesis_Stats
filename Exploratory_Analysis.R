@@ -10,6 +10,9 @@ library(emmeans) # for estimated marginal means and Bonferroni correction
 library(lmtest) # For Durbin-Watson statistic
 library(olsrr) # For Model selection based on R squared
 library(car) # for Partial Regression plots
+install.packages('vegan',
+                 repos = c('https://vegandevs.r-universe.dev','https://cloud.r-project.org'))
+library(vegan) # PERMANOVA analysis and ANOSIM
 
 
 ### READING AND FILTERING
@@ -246,29 +249,29 @@ Sediment_filtered %>% group_by(Estuary) %>%
 # NI mean: 26.5, sd: 16.9
 
 
-### Linear Modeling BMA Responses
+### Linear Regresion of BMA Responses
 
 DIN_avg = DIN_combined %>%
   na.omit() %>%
-  group_by(Month, Site) %>%
+  group_by(Month, Site, Estuary) %>%
   summarize(mean_DIN_uM = mean(DIN_uM), sd_DIN_uM = sd(DIN_uM))
 DIN_avg
 
 Biomass_avg = Biomass_filtered %>%
   na.omit() %>%
-  group_by(Month, Site) %>%
+  group_by(Month, Site, Estuary) %>%
   summarize(mean_Chla_ug = mean(`Chla (ug/g)`), sd_Chla_ug = sd(`Chla (ug/g)`)) %>%
 Biomass_avg
 
 PO4_avg = PO4_filtered %>%
   na.omit() %>%
-  group_by(Month, Site) %>%
+  group_by(Month, Site, Estuary) %>%
   summarize(mean_PO4_uM = mean(Adjusted_Concentration_uM), sd_DIN_um = sd(Adjusted_Concentration_uM))
 PO4_avg
 
 Sed_avg = Sediment_filtered %>%
   na.omit() %>%
-  group_by(Month, Site) %>%
+  group_by(Month, Site, Estuary) %>%
   summarize(mean_500um = mean(`>500um (%)`), sd_500um = sd(`>500um (%)`), 
             mean_63um = mean(`>63um (%)`), sd_63um = sd(`>63um (%)`),
             mean_less63um = mean(`<63um (%)`), sd_less63um = sd(`<63um (%)`))
@@ -280,7 +283,13 @@ LM_data = Biomass_avg %>%
   left_join(Sed_avg, by = c("Month", "Site")) %>%
   na.omit() %>%
   ungroup() %>%
+  select(-Estuary.x) %>%
+  select(-Estuary.y) %>%
   print()
+
+LM_data = LM_data[-14, ]
+# removing outlier data point (July SD)
+
 # combining all data by averaging by site/month in order to get "paired' observations
 
 # Step 1: Run all possible models
@@ -326,7 +335,7 @@ summary(resids)
 plot(final_model_best, which = 2)
 plot(final_model_best, 1) # residual vs fitted plot.
 lillie.test(final_model_best$residuals)
-# abnormal residuals (p < 0.05)
+# relatively abnormal residuals (p < 0.05)
 
 avPlots(final_model_best)
 
@@ -350,3 +359,74 @@ geom_point(color = "blue", size = 2) + # scatter points
   ) +
   theme_bw()
 LM_plot
+
+# Best predictors: PO4, smallest sed, DIN
+# adjusted r^2 of 0.349
+# with July SD point removed r^2 jumps to 0.66 !!!
+
+
+### PERMANOVA for complete site comparison
+
+
+# PERMANOVA_data = read_excel('/Users/suzanneguy/R_Projects/MS_Thesis_Data_Analysis/MS_Thesis_Stats/Data/BMA_Human_Impacts_Master_Datasheet.xlsx', sheet = 'PERMANOVA') %>%
+  # filter(Site != "B3" & Site != "GI") %>%
+ #  mutate(Month = month(Date, label = TRUE, abbr = FALSE)) %>% filter(Month != "October" & Month != "December")
+# DOESN'T WORK,  KEEPING FOR NOW
+
+PERMANOVA_data = LM_data
+
+head(PERMANOVA_data)
+
+PERMANOVA_data$Month<-as.factor(PERMANOVA_data$Month) #Factor 1
+PERMANOVA_data$Estuary<-as.factor(PERMANOVA_data$Estuary) #Factor 2
+permanova_data <- PERMANOVA_data %>%
+  select(-Estuary, -Month, -Site)
+perm_dist<-vegdist(permanova_data, method = "bray")
+
+NMDS_model <- metaMDS(permanova_data, trace = FALSE)
+plot(NMDS_model)
+scores(NMDS_model)
+
+NMDS_model$stress
+
+with(PERMANOVA_data, ordiellipse(NMDS_model, Estuary, kind = "sd", label = TRUE))
+ellipse_data_treatment <- with(PERMANOVA_data, ordiellipse(NMDS_model, Estuary, kind = "sd"))
+
+summary(ellipse_data_treatment)
+
+dispersion<-betadisper(perm_dist, PERMANOVA_data$Estuary)
+
+dispersion
+
+anova(dispersion)
+
+plot(dispersion, hull=FALSE, ellipse=TRUE)
+
+full_model_result<-adonis2(perm_dist~ Estuary + Month, data = PERMANOVA_data, permutations =999, by = NULL) #currently set to check full model all together
+
+full_model_result
+
+perma_result <-adonis2(perm_dist~ Estuary + Month, data = PERMANOVA_data, permutations = 999, by= "terms") #Add interaction terms - factor1*factor2
+
+perma_result
+# Estuary weakly significant (p = 0.077)
+# Month significant (p = 0.001)
+
+
+### ANOSIMS IDK
+
+
+Biomass_anosim_data = Biomass_filtered %>% na.omit()
+Biomass_anosim = anosim(x = Biomass_anosim_data$`Chla (ug/g)`, grouping = Biomass_anosim_data$Estuary, permutations = 999, distance = "bray", strata = Biomass_anosim_data$Month)
+Biomass_anosim
+# Significant difference in biomass between estuaries (p < 0.001)
+
+DIN_anosim_data = DIN_combined %>% na.omit()
+DIN_anosim = anosim(x = m_com, grouping = DIN_anosim_data$Estuary, permutations = 999, distance = "bray", strata = DIN_anosim_data$Month)
+DIN_anosim
+
+DIN_anosim = anosim(x = DIN_anosim_data$DIN_uM, grouping = DIN_anosim_data$Estuary, permutations = 999, distance = "bray", strata = DIN_anosim_data$Month)
+
+PO4_anosim_data = PO4_filtered %>% na.omit() 
+PO4_anosim = anosim(x = PO4_anosim_data$Adjusted_Concentration_uM, grouping = PO4_anosim_data$Estuary, permutations = 999, distance = "bray", strata = PO4_anosim_data$Month)
+PO4_anosim
