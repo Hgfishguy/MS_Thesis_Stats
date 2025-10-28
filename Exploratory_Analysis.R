@@ -39,7 +39,8 @@ NO3_filtered = NO3_data %>% filter(Site != "B3" & Site != "GI") %>%
 PO4_filtered = PO4_data %>% filter(Site != "B3" & Site != "GI") %>%
   mutate(Month = month(Date, label = TRUE, abbr = FALSE)) %>% filter(Month != "October" & Month != "December") %>%
   mutate(Notes = ifelse(is.na(Notes), "porewater", Notes)) %>%
-  filter(Notes != "Ambient")
+  filter(Notes != "Ambient") %>%
+  mutate(Adjusted_Concentration_uM = replace(Adjusted_Concentration_uM, Adjusted_Concentration_uM == 0, 0.1))
 Sediment_filtered = Sediment_data %>% filter(Site != "B3" & Site != "GI") %>%
   mutate(Month = month(Date, label = TRUE, abbr = FALSE)) %>% filter(Month != "October" & Month != "December")
 # removing B3 and GI sites from dataset, as well as adding a month column (then removing oct/dec)
@@ -53,8 +54,10 @@ NO3_united = NO3_filtered %>% unite(col = "Marker", c(Date, Estuary, Site, Notes
 
 DIN_combined = NH4_united %>%
   inner_join(NO3_united, by = "Marker") %>%
-  mutate(DIN_uM = Adjusted_Concentration_uM.x + Adjusted_Concentration_uM.y, Estuary = Estuary.x, Month = Month.x, Site = Site.x) 
+  mutate(DIN_uM = Adjusted_Concentration_uM.x + Adjusted_Concentration_uM.y, Estuary = Estuary.x, Month = Month.x, Site = Site.x) %>%
+  mutate(DIN_uM = replace(DIN_uM, DIN_uM == 0, 0.1))
 # Dataframes joined using "Marker" index and concentrations added together
+# Points below detection (equal to zero) reassigned as 0.1 for stat purposes
 
 # Sediment data changed in order to be plottet (facors reordered as well)
 Sediment_longer = Sediment_filtered %>%
@@ -251,6 +254,7 @@ Sediment_filtered %>% group_by(Estuary) %>%
 
 ### Linear Regresion of BMA Responses
 
+
 DIN_avg = DIN_combined %>%
   na.omit() %>%
   group_by(Month, Site, Estuary) %>%
@@ -377,7 +381,7 @@ PERMANOVA_data = LM_data
 
 head(PERMANOVA_data)
 
-PERMANOVA_data$Month<-as.factor(PERMANOVA_data$Month) #Factor 1
+PERMANOVA_data$Month<-as.factor(PERMANOVA_data$Month) #Factor 1 (blocking)
 PERMANOVA_data$Estuary<-as.factor(PERMANOVA_data$Estuary) #Factor 2
 permanova_data <- PERMANOVA_data %>%
   select(-Estuary, -Month, -Site)
@@ -418,15 +422,37 @@ perma_result
 
 Biomass_anosim_data = Biomass_filtered %>% na.omit()
 Biomass_anosim = anosim(x = Biomass_anosim_data$`Chla (ug/g)`, grouping = Biomass_anosim_data$Estuary, permutations = 999, distance = "bray", strata = Biomass_anosim_data$Month)
-Biomass_anosim
-# Significant difference in biomass between estuaries (p < 0.001)
+summary(Biomass_anosim)
+plot(Biomass_anosim)
+# R = 0.02923, p = 0.001
 
 DIN_anosim_data = DIN_combined %>% na.omit()
-DIN_anosim = anosim(x = m_com, grouping = DIN_anosim_data$Estuary, permutations = 999, distance = "bray", strata = DIN_anosim_data$Month)
-DIN_anosim
-
 DIN_anosim = anosim(x = DIN_anosim_data$DIN_uM, grouping = DIN_anosim_data$Estuary, permutations = 999, distance = "bray", strata = DIN_anosim_data$Month)
+summary(DIN_anosim)
+plot(DIN_anosim)
+# R = 0.008638, p = 0.872
 
 PO4_anosim_data = PO4_filtered %>% na.omit() 
 PO4_anosim = anosim(x = PO4_anosim_data$Adjusted_Concentration_uM, grouping = PO4_anosim_data$Estuary, permutations = 999, distance = "bray", strata = PO4_anosim_data$Month)
-PO4_anosim
+summary(PO4_anosim)
+plot(PO4_anosim)
+# R = 0.05296, p = 0.001
+
+Sediment_anosim_data = Sediment_filtered %>% na.omit() %>%
+  mutate(`>500um (%)` = replace(`>500um (%)`, `>500um (%)` == 0, 0.00001), 
+         `>63um (%)` = replace(`>63um (%)`, `>63um (%)` == 0, 0.00001),
+         `<63um (%)` = replace(`<63um (%)`, `<63um (%)` == 0, 0.00001))
+
+Sand_anosim = anosim(x = Sediment_anosim_data$`>500um (%)`, grouping = Sediment_anosim_data$Estuary, permutations = 999, distance = "bray", strata = Sediment_anosim_data$Month)
+summary(Sand_anosim)
+plot(Sand_anosim)
+# R = 0.4681, p = 0.001
+Silt_anosim = anosim(x = Sediment_anosim_data$`>63um (%)`, grouping = Sediment_anosim_data$Estuary, permutations = 999, distance = "bray", strata = Sediment_anosim_data$Month)
+summary(Silt_anosim)
+plot(Silt_anosim)
+# R = 0.02256, p = 0.009
+Clay_anosim = anosim(x = Sediment_anosim_data$`<63um (%)`, grouping = Sediment_anosim_data$Estuary, permutations = 999, distance = "bray", strata = Sediment_anosim_data$Month)
+summary(Clay_anosim)
+plot(Clay_anosim)
+# R = 0.2759, p = 0.001
+
