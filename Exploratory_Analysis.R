@@ -13,6 +13,9 @@ library(car) # for Partial Regression plots
 install.packages('vegan',
                  repos = c('https://vegandevs.r-universe.dev','https://cloud.r-project.org'))
 library(vegan) # PERMANOVA analysis and ANOSIM
+library(ggplot2)
+install.packages("ggsignif")
+library(ggsignif) # ggplot significance
 
 
 ### READING AND FILTERING
@@ -78,26 +81,46 @@ Sediment_boxplot = ggplot(data = Sediment_longer) +
   ylim(0,100) +
   theme_bw()
 Sediment_boxplot
+ggsave(Sediment_boxplot, filename = "Figures/Sediment_boxplot.pdf", device = "pdf", height = 5, width = 8) 
 
-DIN_boxplot = ggplot(data = DIN_combined) +
-  geom_boxplot(aes(y = DIN_uM, x = Estuary, fill = Estuary)) +
+DIN_boxplot = ggplot(data = DIN_combined, aes(y = DIN_uM, x = Estuary, fill = Estuary)) +
+  geom_boxplot() +
   scale_fill_manual(values = c("chartreuse3", "darkturquoise"), guide = "none") +
   # geom_jitter(aes(y = Adjusted_Concentration_uM, x = Estuary), width = 0.2) +
+  geom_signif(
+    comparisons = list(c("MI", "NI")), # Specify the groups to compare
+    map_signif_level = TRUE, # Display significance stars (e.g., *, **, ***)
+    test = "t.test", # Or "t.test" for t-test
+    vjust = 0.5, # Adjust vertical position of the significance bar
+    tip_length = 0.01 # Adjust length of the tips of the significance bar
+  ) +
   facet_wrap(~Month, nrow = 1) + 
   ylab("DIN Concentration (μM)") +
   xlab("Estuary") +
   ylim(0,5000) +
   theme_bw()
 DIN_boxplot
+ggsave(DIN_boxplot, filename = "Figures/DIN_boxplot.pdf", device = "pdf", height = 5, width = 5) 
 
-NH4_boxplot = ggplot(data = NH4_filtered) +
-  geom_boxplot(aes(y = Adjusted_Concentration_uM, x = Estuary, fill = Estuary)) +
+
+NH4_boxplot = ggplot(data = NH4_filtered, aes(y = Adjusted_Concentration_uM, x = Estuary, fill = Estuary)) +
+  geom_boxplot() +
+  geom_signif(
+    comparisons = list(c("MI", "NI")), # Specify the groups to compare
+    map_signif_level = TRUE, # Display significance stars (e.g., *, **, ***)
+    test = "t.test", # Or "t.test" for t-test
+    vjust = 0.5, # Adjust vertical position of the significance bar
+    tip_length = 0.01 # Adjust length of the tips of the significance bar
+  ) +
   scale_fill_manual(values = c("chartreuse3", "darkturquoise"), guide = "none") +
   # geom_jitter(aes(y = Adjusted_Concentration_uM, x = Estuary), width = 0.2) +
   facet_wrap(~Month, nrow = 1) + 
   ylab("NH4 Concentration (μM)") +
+  ylim(0,5000) +
   theme_bw()
 NH4_boxplot
+ggsave(NH4_boxplot, filename = "Figures/NH4_boxplot.pdf", device = "pdf", height = 5, width = 5) 
+
 
 NO3_boxplot = ggplot(data = NO3_filtered) +
   geom_boxplot(aes(y = Adjusted_Concentration_uM, x = Estuary, fill = Estuary)) +
@@ -105,17 +128,29 @@ NO3_boxplot = ggplot(data = NO3_filtered) +
   # geom_jitter(aes(y = Adjusted_Concentration_uM, x = Estuary), width = 0.2) +
   facet_wrap(~Month, nrow = 1) + 
   ylab("NO3 Concentration (μM)") +
+  ylim(0,2000) +
   theme_bw()
 NO3_boxplot
+ggsave(NO3_boxplot, filename = "Figures/NO3_boxplot.pdf", device = "pdf", height = 5, width = 5) 
 
-PO4_boxplot = ggplot(data = PO4_filtered) +
-  geom_boxplot(aes(y = Adjusted_Concentration_uM, x = Estuary, fill = Estuary)) +
+
+PO4_boxplot = ggplot(data = PO4_filtered, aes(y = Adjusted_Concentration_uM, x = Estuary, fill = Estuary)) +
+  geom_boxplot() +
   scale_fill_manual(values = c("chartreuse3", "darkturquoise"), guide = "none") +
+  geom_signif(
+    comparisons = list(c("MI", "NI")), # Specify the groups to compare
+    map_signif_level = TRUE, # Display significance stars (e.g., *, **, ***)
+    test = "t.test", # Or "t.test" for t-test
+    vjust = 0.5, # Adjust vertical position of the significance bar
+    tip_length = 0.01 # Adjust length of the tips of the significance bar
+  ) +
   # geom_jitter(aes(y = Adjusted_Concentration_uM, x = Estuary), width = 0.2) +
   facet_wrap(~Month, nrow = 1) + 
   ylab("PO4 Concentration (μM)") +
   theme_bw()
 PO4_boxplot
+ggsave(PO4_boxplot, filename = "Figures/PO4_boxplot.pdf", device = "pdf", height = 5, width = 5) 
+
 
 Biomass_boxplot = ggplot(data = Biomass_filtered) +
   geom_boxplot(aes(y = `Chla (ug/g)`, x = Estuary, fill = Estuary)) +
@@ -126,6 +161,8 @@ Biomass_boxplot = ggplot(data = Biomass_filtered) +
   ylim(0,120) +
   theme_bw()
 Biomass_boxplot
+ggsave(Biomass_boxplot, filename = "Figures/Biomass_boxplot.pdf", device = "pdf", height = 5, width = 5) 
+
 # plotting data! Notice that the jitter data points are masked by a comment
 # they were lowkey making the graphs hard to read lol
 
@@ -264,7 +301,7 @@ DIN_avg
 Biomass_avg = Biomass_filtered %>%
   na.omit() %>%
   group_by(Month, Site, Estuary) %>%
-  summarize(mean_Chla_ug = mean(`Chla (ug/g)`), sd_Chla_ug = sd(`Chla (ug/g)`)) %>%
+  summarize(mean_Chla_ug = mean(`Chla (ug/g)`), sd_Chla_ug = sd(`Chla (ug/g)`))
 Biomass_avg
 
 PO4_avg = PO4_filtered %>%
@@ -287,11 +324,14 @@ LM_data = Biomass_avg %>%
   left_join(Sed_avg, by = c("Month", "Site")) %>%
   na.omit() %>%
   ungroup() %>%
+  mutate(Estuary = Estuary.x) %>%
   select(-Estuary.x) %>%
+  select(-Estuary.x.x) %>%
   select(-Estuary.y) %>%
+  select(-Estuary.y.y) %>%
   print()
 
-LM_data = LM_data[-14, ]
+# LM_data = LM_data[-16, ]
 # removing outlier data point (July SD)
 
 # combining all data by averaging by site/month in order to get "paired' observations
@@ -363,6 +403,7 @@ geom_point(color = "blue", size = 2) + # scatter points
   ) +
   theme_bw()
 LM_plot
+ggsave(LM_plot, filename = "Figures/LM_plot.pdf", device = "pdf", height = 5, width = 5) 
 
 # Best predictors: PO4, smallest sed, DIN
 # adjusted r^2 of 0.349
@@ -413,7 +454,7 @@ full_model_result
 perma_result <-adonis2(perm_dist~ Estuary + Month, data = PERMANOVA_data, permutations = 999, by= "terms") #Add interaction terms - factor1*factor2
 
 perma_result
-# Estuary weakly significant (p = 0.077)
+# Estuary significant (p = 0.031)
 # Month significant (p = 0.001)
 
 
@@ -425,18 +466,21 @@ Biomass_anosim = anosim(x = Biomass_anosim_data$`Chla (ug/g)`, grouping = Biomas
 summary(Biomass_anosim)
 plot(Biomass_anosim)
 # R = 0.02923, p = 0.001
+# groups similar
 
 DIN_anosim_data = DIN_combined %>% na.omit()
 DIN_anosim = anosim(x = DIN_anosim_data$DIN_uM, grouping = DIN_anosim_data$Estuary, permutations = 999, distance = "bray", strata = DIN_anosim_data$Month)
 summary(DIN_anosim)
 plot(DIN_anosim)
 # R = 0.008638, p = 0.872
+# groups similar
 
 PO4_anosim_data = PO4_filtered %>% na.omit() 
 PO4_anosim = anosim(x = PO4_anosim_data$Adjusted_Concentration_uM, grouping = PO4_anosim_data$Estuary, permutations = 999, distance = "bray", strata = PO4_anosim_data$Month)
 summary(PO4_anosim)
 plot(PO4_anosim)
 # R = 0.05296, p = 0.001
+# groups similar
 
 Sediment_anosim_data = Sediment_filtered %>% na.omit() %>%
   mutate(`>500um (%)` = replace(`>500um (%)`, `>500um (%)` == 0, 0.00001), 
@@ -447,12 +491,68 @@ Sand_anosim = anosim(x = Sediment_anosim_data$`>500um (%)`, grouping = Sediment_
 summary(Sand_anosim)
 plot(Sand_anosim)
 # R = 0.4681, p = 0.001
+# groups different
 Silt_anosim = anosim(x = Sediment_anosim_data$`>63um (%)`, grouping = Sediment_anosim_data$Estuary, permutations = 999, distance = "bray", strata = Sediment_anosim_data$Month)
 summary(Silt_anosim)
 plot(Silt_anosim)
 # R = 0.02256, p = 0.009
+# groups similar
 Clay_anosim = anosim(x = Sediment_anosim_data$`<63um (%)`, grouping = Sediment_anosim_data$Estuary, permutations = 999, distance = "bray", strata = Sediment_anosim_data$Month)
 summary(Clay_anosim)
 plot(Clay_anosim)
 # R = 0.2759, p = 0.001
+# groups almost different
+
+
+### Friedman tests
+
+# FM_data = LM_data %>% na.omit() %>%
+  # group_by(Month, Estuary) %>%
+  # summarize(mean_500um = mean(mean_500um), sd_500um = sd(sd_500um), 
+            # mean_63um = mean(mean_63um), sd_63um = sd(sd_63um),
+            # mean_less63um = mean(mean_less63um), sd_less63um = sd(sd_less63um),
+            # mean_DIN_uM = mean(mean_DIN_uM), sd_DIN_uM = sd(sd_DIN_uM),
+            # mean_Chla_ug = mean(mean_Chla_ug), sd_Chla_ug = sd(sd_Chla_ug),
+           #  mean_PO4_uM = mean(mean_PO4_uM), sd_DIN_um = sd(sd_DIN_um)) %>%
+  # ungroup()
+
+FM_data = LM_data %>% na.omit() %>%
+  group_by(Month, Estuary) %>%
+  summarize(mean_500um = mean(mean_500um), mean_63um = mean(mean_63um),
+            mean_less63um = mean(mean_less63um),
+            mean_DIN_uM = mean(mean_DIN_uM),
+            mean_Chla_ug = mean(mean_Chla_ug),
+            mean_PO4_uM = mean(mean_PO4_uM)) %>%
+  ungroup()
+
+head(FM_data) # month and estuary aren't factors!
+FM_data$Month<-as.factor(FM_data$Month) #Factor 1 (blocking)
+FM_data$Estuary<-as.factor(FM_data$Estuary) #Factor 2
+# didn't work, converting to df
+FM_df = as.data.frame(FM_data)
+head(FM_df)
+FM_df$Month = factor(FM_df$Month) # factorization!
+FM_df$Estuary = factor(FM_df$Estuary) # factorization!
+
+FM_df %>% friedman_test(mean_500um ~ Estuary|Month)
+# >500um composition different (p < 0.05)
+
+FM_df %>% friedman_test(mean_63um ~ Estuary|Month)
+# >63um composition not different (p = 0.655)
+
+FM_df %>% friedman_test(mean_less63um ~ Estuary|Month)
+# <63 composition not different (p = 0.180)
+
+FM_df %>% friedman_test(mean_DIN_uM ~ Estuary|Month)
+# DIN levels not different (p = 0.180)
+
+FM_df %>% friedman_test(mean_PO4_uM ~ Estuary|Month)
+# PO4 levels not different (p = 0.180)
+
+FM_df %>% friedman_test(mean_Chla_ug ~ Estuary|Month)
+# Chla levels not different (p = 0.655)
+
+# JUNE AND AUGUST DATA MISSING FROM LM_data # FIX!!!!! # FIXED
+# LM data generation seems to have removed boat sites during generation, double check naming conventions
+
 
