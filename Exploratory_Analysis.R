@@ -16,7 +16,8 @@ library(vegan) # PERMANOVA analysis and ANOSIM
 library(ggplot2)
 install.packages("ggsignif")
 library(ggsignif) # ggplot significance
-
+install.packages("writexl")
+library(writexl)
 
 ### READING AND FILTERING
 
@@ -87,13 +88,13 @@ DIN_boxplot = ggplot(data = DIN_combined, aes(y = DIN_uM, x = Estuary, fill = Es
   geom_boxplot() +
   scale_fill_manual(values = c("chartreuse3", "darkturquoise"), guide = "none") +
   # geom_jitter(aes(y = Adjusted_Concentration_uM, x = Estuary), width = 0.2) +
-  geom_signif(
-    comparisons = list(c("MI", "NI")), # Specify the groups to compare
-    map_signif_level = TRUE, # Display significance stars (e.g., *, **, ***)
-    test = "t.test", # Or "t.test" for t-test
-    vjust = 0.5, # Adjust vertical position of the significance bar
-    tip_length = 0.01 # Adjust length of the tips of the significance bar
-  ) +
+  # geom_signif(
+   # comparisons = list(c("MI", "NI")), # Specify the groups to compare
+  #  map_signif_level = TRUE, # Display significance stars (e.g., *, **, ***)
+   # test = "t.test", # Or "t.test" for t-test
+   # vjust = 0.5, # Adjust vertical position of the significance bar
+   # tip_length = 0.01 # Adjust length of the tips of the significance bar
+  # ) +
   facet_wrap(~Month, nrow = 1) + 
   ylab("DIN Concentration (μM)") +
   xlab("Estuary") +
@@ -337,7 +338,12 @@ LM_data = Biomass_avg %>%
 # combining all data by averaging by site/month in order to get "paired' observations
 
 # Step 1: Run all possible models
-full_model = lm(mean_Chla_ug ~ mean_DIN_uM + mean_PO4_uM + mean_500um + mean_63um + mean_less63um, data = LM_data)
+
+LM_data_filtered = LM_data %>%
+  filter(mean_Chla_ug <= 40)
+# filtering out high chla values
+
+full_model = lm(mean_Chla_ug ~ mean_DIN_uM + mean_PO4_uM + mean_500um + mean_63um + mean_less63um, data = LM_data_filtered)
 all_models <- ols_step_all_possible(full_model)
 all_models
 
@@ -356,7 +362,7 @@ predictor_formula <- paste(selected_predictors_split, collapse = " + ")
 
 formula_best <- as.formula(paste("mean_Chla_ug ~", predictor_formula)) 
 
-final_model_best <- lm(formula_best, data = LM_data) 
+final_model_best <- lm(formula_best, data = LM_data_filtered) 
 
 stepwise_summary <- summary(final_model_best)
 
@@ -367,7 +373,7 @@ stepwise_summary
 
 dw_stat <- dwtest(final_model_best)
 cat("Durbin-Watson Statistic:", dw_stat$statistic, "\n")
-# DW stat: 2.12
+# DW stat: 1.917664
 ols_coll_diag(final_model_best)
 
 resids <- residuals(final_model_best)
@@ -379,19 +385,19 @@ summary(resids)
 plot(final_model_best, which = 2)
 plot(final_model_best, 1) # residual vs fitted plot.
 lillie.test(final_model_best$residuals)
-# relatively abnormal residuals (p < 0.05)
+# relatively normal residuals (p = 0.2971)
 
 avPlots(final_model_best)
 
-plot(LM_data$mean_Chla_ug, final_model_best$fitted.values)
+plot(LM_data_filtered$mean_Chla_ug, final_model_best$fitted.values)
 
 adj_r2 <- summary(final_model_best)$adj.r.squared
 
-LM_plot = ggplot(LM_data, aes(x = mean_Chla_ug, y = final_model_best$fitted.values)) + 
+LM_plot = ggplot(LM_data_filtered, aes(x = mean_Chla_ug, y = final_model_best$fitted.values)) + 
 geom_point(color = "blue", size = 2) + # scatter points
   geom_smooth(method = "lm", se = TRUE, color = "red") + # linear fit line with 95% CI
   annotate("text",
-           x = max(LM_data$mean_Chla_ug) * 0.9,
+           x = max(LM_data_filtered$mean_Chla_ug) * 0.9,
            y = max(final_model_best$fitted.values)*0.1, 
            label = paste0("r\u00B2 = ", round(adj_r2, 3)), # "\u00B2" is the notation r^2
            size = 4, # size the r-squared value is reported as
@@ -399,7 +405,7 @@ geom_point(color = "blue", size = 2) + # scatter points
   labs(
     x = "Mean Chla (ug/g)",
     y = "Unstandardized Predicted Values",
-    title = "Actual vs Predicted Values for Chla"
+    # title = "Actual vs Predicted Values for Chla"
   ) +
   theme_bw()
 LM_plot
@@ -418,7 +424,10 @@ ggsave(LM_plot, filename = "Figures/LM_plot.pdf", device = "pdf", height = 5, wi
  #  mutate(Month = month(Date, label = TRUE, abbr = FALSE)) %>% filter(Month != "October" & Month != "December")
 # DOESN'T WORK,  KEEPING FOR NOW
 
-PERMANOVA_data = LM_data
+perm_data = LM_data %>%
+  select(-sd_Chla_ug, -sd_DIN_uM, -sd_DIN_um, -sd_500um, -sd_63um, -sd_less63um)
+
+PERMANOVA_data = perm_data
 
 head(PERMANOVA_data)
 
@@ -429,10 +438,11 @@ permanova_data <- PERMANOVA_data %>%
 perm_dist<-vegdist(permanova_data, method = "bray")
 
 NMDS_model <- metaMDS(permanova_data, trace = FALSE)
-plot(NMDS_model)
+plot(NMDS_model, display = "sites")
 scores(NMDS_model)
 
 NMDS_model$stress
+# stress = 0.141996
 
 with(PERMANOVA_data, ordiellipse(NMDS_model, Estuary, kind = "sd", label = TRUE))
 ellipse_data_treatment <- with(PERMANOVA_data, ordiellipse(NMDS_model, Estuary, kind = "sd"))
@@ -454,7 +464,7 @@ full_model_result
 perma_result <-adonis2(perm_dist~ Estuary + Month, data = PERMANOVA_data, permutations = 999, by= "terms") #Add interaction terms - factor1*factor2
 
 perma_result
-# Estuary significant (p = 0.031)
+# Estuary weakly significant (p = 0.057)
 # Month significant (p = 0.001)
 
 
@@ -555,4 +565,95 @@ FM_df %>% friedman_test(mean_Chla_ug ~ Estuary|Month)
 # JUNE AND AUGUST DATA MISSING FROM LM_data # FIX!!!!! # FIXED
 # LM data generation seems to have removed boat sites during generation, double check naming conventions
 
+
+### Exporting data to excel for chatgpt analysis
+
+
+write_xlsx(Biomass_filtered, path = "Data/biomass_filtered.xlsx")
+write_xlsx(PERMANOVA_data, path = "Data/PERMANOVA_data.xlsx")
+write_xlsx(DIN_combined, path = "Data/DIN_combined.xlsx")
+
+
+### prepping for random forest analysis in chatgpt
+
+
+Biomass_forest = read_excel('/Users/suzanneguy/R_Projects/MS_Thesis_Data_Analysis/MS_Thesis_Stats/Data/BMA_Human_Impacts_Master_COPY.xlsx', sheet = 'Biomass')
+DIN_forest = read_excel('/Users/suzanneguy/R_Projects/MS_Thesis_Data_Analysis/MS_Thesis_Stats/Data/BMA_Human_Impacts_Master_COPY.xlsx', sheet = 'DIN')
+PO4_forest = read_excel('/Users/suzanneguy/R_Projects/MS_Thesis_Data_Analysis/MS_Thesis_Stats/Data/BMA_Human_Impacts_Master_COPY.xlsx', sheet = 'PO4')
+Sediment_forest = read_excel('/Users/suzanneguy/R_Projects/MS_Thesis_Data_Analysis/MS_Thesis_Stats/Data/BMA_Human_Impacts_Master_COPY.xlsx', sheet = 'Sediment')
+
+forest_joined = Biomass_forest %>%
+  full_join(DIN_forest, by = c("Date", "Site", "Replicate")) %>%
+  full_join(PO4_forest, by = c("Date", "Site", "Replicate")) %>%
+  full_join(Sediment_forest, by = c("Date", "Site", "Replicate"))
+
+forest_data = forest_joined %>%
+  select(-Estuary.y, -Estuary.x.x, -Estuary.y.y, -Month)
+
+write_xlsx(forest_data, path = "Data/forest_data.xlsx")
+
+
+### CERF PLOTS
+
+
+CERF_Sediment_boxplot = ggplot(data = Sediment_longer) +
+  geom_boxplot(aes(y = Percent, x = Estuary, fill = `Grain Size`)) +
+  scale_fill_manual(values = c("gray", "beige", "chocolate4")) +
+  # facet_wrap(~Month, nrow = 1) + 
+  ylab("Grain Size (%)") +
+  xlab("Estuary") +
+  ylim(0,100) +
+  theme_bw()
+CERF_Sediment_boxplot
+ggsave(CERF_Sediment_boxplot, filename = "Figures/CERF_Sediment_boxplot.pdf", device = "pdf", height = 5, width = 8) 
+
+CERF_DIN_boxplot = ggplot(data = DIN_combined, aes(y = DIN_uM, x = Estuary, fill = Estuary)) +
+  geom_boxplot() +
+  scale_fill_manual(values = c("chartreuse3", "darkturquoise"), guide = "none") +
+  # geom_jitter(aes(y = Adjusted_Concentration_uM, x = Estuary), width = 0.2) +
+  # geom_signif(
+  # comparisons = list(c("MI", "NI")), # Specify the groups to compare
+  #  map_signif_level = TRUE, # Display significance stars (e.g., *, **, ***)
+  # test = "t.test", # Or "t.test" for t-test
+  # vjust = 0.5, # Adjust vertical position of the significance bar
+  # tip_length = 0.01 # Adjust length of the tips of the significance bar
+  # ) +
+  # facet_wrap(~Month, nrow = 1) + 
+  ylab("DIN Concentration (uM)") +
+  xlab("Estuary") +
+  ylim(0,5000) +
+  theme_bw()
+CERF_DIN_boxplot
+ggsave(CERF_DIN_boxplot, filename = "Figures/CERF_DIN_boxplot.pdf", device = "pdf", height = 5, width = 5) 
+
+
+CERF_PO4_boxplot = ggplot(data = PO4_filtered, aes(y = Adjusted_Concentration_uM, x = Estuary, fill = Estuary)) +
+  geom_boxplot() +
+  scale_fill_manual(values = c("chartreuse3", "darkturquoise"), guide = "none") +
+  # geom_signif(
+    # comparisons = list(c("MI", "NI")), # Specify the groups to compare
+    # map_signif_level = TRUE, # Display significance stars (e.g., *, **, ***)
+   #  test = "t.test", # Or "t.test" for t-test
+   #  vjust = 0.5, # Adjust vertical position of the significance bar
+   #  tip_length = 0.01 # Adjust length of the tips of the significance bar
+  # ) +
+  # geom_jitter(aes(y = Adjusted_Concentration_uM, x = Estuary), width = 0.2) +
+  # facet_wrap(~Month, nrow = 1) + 
+  ylab("PO4 Concentration (uM)") +
+  ylim(0,100) +
+  theme_bw()
+CERF_PO4_boxplot
+ggsave(CERF_PO4_boxplot, filename = "Figures/CERF_PO4_boxplot.pdf", device = "pdf", height = 5, width = 5) 
+
+
+CERF_Biomass_boxplot = ggplot(data = Biomass_filtered) +
+  geom_boxplot(aes(y = `Chla (ug/g)`, x = Estuary, fill = Estuary)) +
+  scale_fill_manual(values = c("chartreuse3", "darkturquoise"), guide = "none") +
+  # geom_jitter(aes(y = `Chla (ug/g)`, x = Estuary), width = 0.2) +
+  # facet_wrap(~Month, nrow = 1) + 
+  ylab("Chla Concentration (ug/g)") + 
+  ylim(0,50) +
+  theme_bw()
+CERF_Biomass_boxplot
+ggsave(CERF_Biomass_boxplot, filename = "Figures/CERF_Biomass_boxplot.pdf", device = "pdf", height = 5, width = 5) 
 
