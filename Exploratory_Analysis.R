@@ -607,52 +607,55 @@ CERF_Sediment_boxplot = ggplot(data = Sediment_longer) +
 CERF_Sediment_boxplot
 ggsave(CERF_Sediment_boxplot, filename = "Figures/CERF_Sediment_boxplot.pdf", device = "pdf", height = 5, width = 8) 
 
-CERF_DIN_boxplot = ggplot(data = DIN_combined, aes(y = DIN_uM, x = Estuary, fill = Estuary)) +
+DIN_limit = DIN_combined %>%
+  filter(DIN_uM <= 5000)
+CERF_DIN_boxplot = ggplot(data = DIN_limit, aes(y = DIN_uM, x = Estuary, fill = Estuary)) +
   geom_boxplot() +
   scale_fill_manual(values = c("chartreuse3", "darkturquoise"), guide = "none") +
   # geom_jitter(aes(y = Adjusted_Concentration_uM, x = Estuary), width = 0.2) +
-  # geom_signif(
-  # comparisons = list(c("MI", "NI")), # Specify the groups to compare
-  #  map_signif_level = TRUE, # Display significance stars (e.g., *, **, ***)
-  # test = "t.test", # Or "t.test" for t-test
-  # vjust = 0.5, # Adjust vertical position of the significance bar
-  # tip_length = 0.01 # Adjust length of the tips of the significance bar
-  # ) +
-  # facet_wrap(~Month, nrow = 1) + 
+  geom_signif(
+    comparisons = list(c("MI", "NI")), # Specify the groups to compare
+    map_signif_level = TRUE, # Display significance stars (e.g., *, **, ***)
+    test = "t.test", # Or "t.test" for t-test
+    vjust = 0.5, # Adjust vertical position of the significance bar
+    tip_length = 0.01 # Adjust length of the tips of the significance bar
+  ) +
   ylab("DIN Concentration (uM)") +
   xlab("Estuary") +
-  ylim(0,5000) +
+  # ylim(0,5000) +
   theme_bw()
 CERF_DIN_boxplot
 ggsave(CERF_DIN_boxplot, filename = "Figures/CERF_DIN_boxplot.pdf", device = "pdf", height = 5, width = 5) 
 
-
-CERF_PO4_boxplot = ggplot(data = PO4_filtered, aes(y = Adjusted_Concentration_uM, x = Estuary, fill = Estuary)) +
+PO4_limit = PO4_filtered %>%
+  filter(Adjusted_Concentration_uM <= 100)
+CERF_PO4_boxplot = ggplot(data = PO4_limit, aes(y = Adjusted_Concentration_uM, x = Estuary, fill = Estuary)) +
   geom_boxplot() +
   scale_fill_manual(values = c("chartreuse3", "darkturquoise"), guide = "none") +
-  # geom_signif(
-    # comparisons = list(c("MI", "NI")), # Specify the groups to compare
-    # map_signif_level = TRUE, # Display significance stars (e.g., *, **, ***)
-   #  test = "t.test", # Or "t.test" for t-test
-   #  vjust = 0.5, # Adjust vertical position of the significance bar
-   #  tip_length = 0.01 # Adjust length of the tips of the significance bar
-  # ) +
+  geom_signif(
+  comparisons = list(c("MI", "NI")), # Specify the groups to compare
+  map_signif_level = TRUE, # Display significance stars (e.g., *, **, ***)
+  test = "t.test", # Or "t.test" for t-test
+  vjust = 0.5, # Adjust vertical position of the significance bar
+  tip_length = 0.01 # Adjust length of the tips of the significance bar
+  ) +
   # geom_jitter(aes(y = Adjusted_Concentration_uM, x = Estuary), width = 0.2) +
   # facet_wrap(~Month, nrow = 1) + 
   ylab("PO4 Concentration (uM)") +
-  ylim(0,100) +
+ # ylim(0,100) +
   theme_bw()
 CERF_PO4_boxplot
 ggsave(CERF_PO4_boxplot, filename = "Figures/CERF_PO4_boxplot.pdf", device = "pdf", height = 5, width = 5) 
 
-
-CERF_Biomass_boxplot = ggplot(data = Biomass_filtered) +
+Biomass_limit = Biomass_filtered %>%
+  filter(`Chla (ug/g)` <= 50)
+CERF_Biomass_boxplot = ggplot(data = Biomass_limit) +
   geom_boxplot(aes(y = `Chla (ug/g)`, x = Estuary, fill = Estuary)) +
   scale_fill_manual(values = c("chartreuse3", "darkturquoise"), guide = "none") +
   # geom_jitter(aes(y = `Chla (ug/g)`, x = Estuary), width = 0.2) +
   # facet_wrap(~Month, nrow = 1) + 
   ylab("Chla Concentration (ug/g)") + 
-  ylim(0,50) +
+  # ylim(0,50) +
   theme_bw()
 CERF_Biomass_boxplot
 ggsave(CERF_Biomass_boxplot, filename = "Figures/CERF_Biomass_boxplot.pdf", device = "pdf", height = 5, width = 5) 
