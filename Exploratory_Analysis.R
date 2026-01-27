@@ -660,3 +660,93 @@ CERF_Biomass_boxplot = ggplot(data = Biomass_limit) +
 CERF_Biomass_boxplot
 ggsave(CERF_Biomass_boxplot, filename = "Figures/CERF_Biomass_boxplot.pdf", device = "pdf", height = 5, width = 5) 
 
+
+### Community Composition Analysis (EcoTaxa)
+
+Diversity_longer = read_excel('/Users/suzanneguy/R_Projects/MS_Thesis_Data_Analysis/MS_Thesis_Stats/Data/Ecotaxa_Diversity_Full.xlsx')
+
+Diversity_wider = Diversity_longer %>%
+  pivot_wider(names_from = taxonid, values_from = count)
+
+write_xlsx(Diversity_wider, path = "Data/Diversity_wider.xlsx")
+# non diatom taxa removed manually, saved as "Diversity_refined.xlsx" 
+Diversity_refined = read_excel("Data/Diversity_refined.xlsx")
+
+Diversity_filtered = Diversity_refined %>%
+  mutate(prefix = substr(sampleid, 1, 2)) %>%
+  mutate(new_name = paste(prefix, Month, sep = '_'))
+
+Diversity_sum = Diversity_filtered %>%
+  group_by(new_name) %>%
+  summarize(Cylindrotheca = sum(Cylindrotheca), 
+            Dactyliosolen = sum(Dactyliosolen), 
+            Entomoneis = sum(Entomoneis),
+            Navicula = sum(Navicula),
+            Nitzschia = sum(Nitzschia), 
+            Pleurosigma = sum(Pleurosigma),
+            `Pseudo-nitzschia` = sum(`Pseudo-nitzschia`),
+            Rhizosolenia = sum(Rhizosolenia),
+            Stephanopyxis = sum(Stephanopyxis),
+            Thalassionema = sum(Thalassionema)
+            )
+
+Diversity_measured = cbind(Diversity_sum, Shannon =  diversity(x = Diversity_sum[, -1], index = 'shannon'))
+
+Diversity_Estuary = Diversity_measured %>%
+  mutate(prefix = substr(new_name, 1, 2)) %>%
+  mutate(Estuary = case_when(
+    prefix == c("A_") ~ "NI", 
+    prefix == c("B_") ~ "NI", 
+    prefix == c("BC") ~ "NI", 
+    prefix == c("CC") ~ "NI", 
+    prefix == c("OL") ~ "NI",
+    TRUE ~ "MI"
+  ))
+Diversity_Estuary$Month <- sub(".*_", "", Diversity_Estuary$new_name)
+
+Estuary_Index = Diversity_Estuary %>%
+  group_by(Estuary, Month) %>%
+  summarize(mean_shannon = mean(Shannon), sd_shannon = sd(Shannon),
+            Cylindrotheca = sum(Cylindrotheca), 
+            Dactyliosolen = sum(Dactyliosolen), 
+            Entomoneis = sum(Entomoneis),
+            Navicula = sum(Navicula),
+            Nitzschia = sum(Nitzschia), 
+            Pleurosigma = sum(Pleurosigma),
+            `Pseudo-nitzschia` = sum(`Pseudo-nitzschia`),
+            Rhizosolenia = sum(Rhizosolenia),
+            Stephanopyxis = sum(Stephanopyxis),
+            Thalassionema = sum(Thalassionema)) %>%
+  print()
+
+
+Month_order = c('January', 'February', 'March', 'April', 'May', 'June', 'July',
+                'August', 'September', 'October', 'November', 'December')
+Estuary_Index$Month = factor(Estuary_Index$Month, levels = Month_order)
+
+Shannon_plot = ggplot(Estuary_Index, aes(x = Month, y = mean_shannon, color = Estuary)) +
+  geom_point() +
+  scale_color_manual(values = c("chartreuse3", "darkturquoise")) +
+  ylab("Shannon Index Value") +
+  xlab("Month (2026)") +
+  theme_bw()
+ggsave(Shannon_plot, filename = "Figures/Shannon_plot.pdf", device = "pdf", height = 5, width = 5) 
+
+Estuary_long = Estuary_Index %>%
+  pivot_longer(cols = c('Cylindrotheca', 
+                        'Dactyliosolen', 
+                        'Entomoneis',
+                        'Navicula',
+                        'Nitzschia', 
+                        'Pleurosigma',
+                        `Pseudo-nitzschia`,
+                        'Rhizosolenia',
+                        'Stephanopyxis',
+                        'Thalassionema') , names_to = "Genus", values_to = "count")
+Ecotaxa_diversity_barplot = ggplot(data = Estuary_long, aes(x = Estuary, y = count, fill = Genus)) + 
+  geom_bar(position = "fill", stat = "identity") + 
+  facet_wrap(~Month, nrow = 1) +     
+  scale_y_continuous(labels = scales::percent_format()) +
+  theme_bw() +
+  ylab("Percent Composition (%)") 
+ggsave(Ecotaxa_diversity, filename = "Figures/Ecotaxa_diversity_barplot.pdf", device = "pdf", height = 5, width = 5) 
