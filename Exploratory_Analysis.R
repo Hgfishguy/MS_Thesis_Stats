@@ -31,7 +31,8 @@ Sediment_data = read_excel('/Users/suzanneguy/R_Projects/MS_Thesis_Data_Analysis
 
 
 Biomass_filtered = Biomass_data %>% filter(Site != "B3" & Site != "GI") %>%
-  mutate(Month = month(Date, label = TRUE, abbr = FALSE)) %>% filter(Month != "October" & Month != "December")
+  mutate(Month = month(Date, label = TRUE, abbr = FALSE)) %>% filter(Month != "October" & Month != "December") %>%
+  filter(`Chla (ug/g)` <= 50)
 NH4_filtered = NH4_data %>% filter(Site != "B3" & Site != "GI") %>%
   mutate(Month = month(Date, label = TRUE, abbr = FALSE)) %>% filter(Month != "October" & Month != "December") %>%
   mutate(Notes = ifelse(is.na(Notes), "porewater", Notes)) %>%
@@ -44,9 +45,10 @@ PO4_filtered = PO4_data %>% filter(Site != "B3" & Site != "GI") %>%
   mutate(Month = month(Date, label = TRUE, abbr = FALSE)) %>% filter(Month != "October" & Month != "December") %>%
   mutate(Notes = ifelse(is.na(Notes), "porewater", Notes)) %>%
   filter(Notes != "Ambient") %>%
-  mutate(Adjusted_Concentration_uM = replace(Adjusted_Concentration_uM, Adjusted_Concentration_uM == 0, 0.1))
+  mutate(Adjusted_Concentration_uM = replace(Adjusted_Concentration_uM, Adjusted_Concentration_uM == 0, 0.1)) %>%
+  filter(Adjusted_Concentration_uM <= 100)
 Sediment_filtered = Sediment_data %>% filter(Site != "B3" & Site != "GI") %>%
-  mutate(Month = month(Date, label = TRUE, abbr = FALSE)) %>% filter(Month != "October" & Month != "December")
+  mutate(Month = month(Date, label = TRUE, abbr = FALSE)) %>% filter(Month != "October" & Month != "December") %>%
 # removing B3 and GI sites from dataset, as well as adding a month column (then removing oct/dec)
 # For nutrient samples, NAs in Notes column are then replaced by porewater in order to filter out ambient samples
 # the filter function cannot filter something out from NAs 
@@ -59,7 +61,8 @@ NO3_united = NO3_filtered %>% unite(col = "Marker", c(Date, Estuary, Site, Notes
 DIN_combined = NH4_united %>%
   inner_join(NO3_united, by = "Marker") %>%
   mutate(DIN_uM = Adjusted_Concentration_uM.x + Adjusted_Concentration_uM.y, Estuary = Estuary.x, Month = Month.x, Site = Site.x) %>%
-  mutate(DIN_uM = replace(DIN_uM, DIN_uM == 0, 0.1))
+  mutate(DIN_uM = replace(DIN_uM, DIN_uM == 0, 0.1)) %>%
+  filter(DIN_uM <= 4000) # REMOVING OUTLIER DATA POINTS GREATER THAN 3 STANDARD DEVIATIONS
 # Dataframes joined using "Marker" index and concentrations added together
 # Points below detection (equal to zero) reassigned as 0.1 for stat purposes
 
@@ -613,39 +616,39 @@ CERF_DIN_boxplot = ggplot(data = DIN_limit, aes(y = DIN_uM, x = Estuary, fill = 
   geom_boxplot() +
   scale_fill_manual(values = c("chartreuse3", "darkturquoise"), guide = "none") +
   # geom_jitter(aes(y = Adjusted_Concentration_uM, x = Estuary), width = 0.2) +
-  geom_signif(
-    comparisons = list(c("MI", "NI")), # Specify the groups to compare
-    map_signif_level = TRUE, # Display significance stars (e.g., *, **, ***)
-    test = "t.test", # Or "t.test" for t-test
-    vjust = 0.5, # Adjust vertical position of the significance bar
-    tip_length = 0.01 # Adjust length of the tips of the significance bar
-  ) +
+  # geom_signif(
+    #comparisons = list(c("MI", "NI")), # Specify the groups to compare
+    #map_signif_level = TRUE, # Display significance stars (e.g., *, **, ***)
+    #test = "t.test", # Or "t.test" for t-test
+    #vjust = 0.5, # Adjust vertical position of the significance bar
+    #tip_length = 0.01 # Adjust length of the tips of the significance bar
+  #) +
   ylab("DIN Concentration (uM)") +
   xlab("Estuary") +
   # ylim(0,5000) +
   theme_bw()
 CERF_DIN_boxplot
-ggsave(CERF_DIN_boxplot, filename = "Figures/CERF_DIN_boxplot.pdf", device = "pdf", height = 5, width = 5) 
+ggsave(CERF_DIN_boxplot, filename = "Figures/CERF_DIN_boxplot.pdf", device = "pdf", height = 5, width = 2) 
 
 PO4_limit = PO4_filtered %>%
   filter(Adjusted_Concentration_uM <= 100)
 CERF_PO4_boxplot = ggplot(data = PO4_limit, aes(y = Adjusted_Concentration_uM, x = Estuary, fill = Estuary)) +
   geom_boxplot() +
   scale_fill_manual(values = c("chartreuse3", "darkturquoise"), guide = "none") +
-  geom_signif(
-  comparisons = list(c("MI", "NI")), # Specify the groups to compare
-  map_signif_level = TRUE, # Display significance stars (e.g., *, **, ***)
-  test = "t.test", # Or "t.test" for t-test
-  vjust = 0.5, # Adjust vertical position of the significance bar
-  tip_length = 0.01 # Adjust length of the tips of the significance bar
-  ) +
+ # geom_signif(
+ # comparisons = list(c("MI", "NI")), # Specify the groups to compare
+ # map_signif_level = TRUE, # Display significance stars (e.g., *, **, ***)
+ # test = "t.test", # Or "t.test" for t-test
+ # vjust = 0.5, # Adjust vertical position of the significance bar
+ # tip_length = 0.01 # Adjust length of the tips of the significance bar
+ # ) +
   # geom_jitter(aes(y = Adjusted_Concentration_uM, x = Estuary), width = 0.2) +
   # facet_wrap(~Month, nrow = 1) + 
   ylab("PO4 Concentration (uM)") +
  # ylim(0,100) +
   theme_bw()
 CERF_PO4_boxplot
-ggsave(CERF_PO4_boxplot, filename = "Figures/CERF_PO4_boxplot.pdf", device = "pdf", height = 5, width = 5) 
+ggsave(CERF_PO4_boxplot, filename = "Figures/CERF_PO4_boxplot.pdf", device = "pdf", height = 5, width = 2) 
 
 Biomass_limit = Biomass_filtered %>%
   filter(`Chla (ug/g)` <= 50)
@@ -658,7 +661,7 @@ CERF_Biomass_boxplot = ggplot(data = Biomass_limit) +
   # ylim(0,50) +
   theme_bw()
 CERF_Biomass_boxplot
-ggsave(CERF_Biomass_boxplot, filename = "Figures/CERF_Biomass_boxplot.pdf", device = "pdf", height = 5, width = 5) 
+ggsave(CERF_Biomass_boxplot, filename = "Figures/CERF_Biomass_boxplot.pdf", device = "pdf", height = 5, width = 2) 
 
 
 ### Community Composition Analysis (EcoTaxa)
@@ -749,4 +752,4 @@ Ecotaxa_diversity_barplot = ggplot(data = Estuary_long, aes(x = Estuary, y = cou
   scale_y_continuous(labels = scales::percent_format()) +
   theme_bw() +
   ylab("Percent Composition (%)") 
-ggsave(Ecotaxa_diversity, filename = "Figures/Ecotaxa_diversity_barplot.pdf", device = "pdf", height = 5, width = 5) 
+ggsave(Ecotaxa_diversity_barplot, filename = "Figures/Ecotaxa_diversity_barplot.pdf", device = "pdf", height = 5, width = 7) 
