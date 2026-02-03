@@ -15,7 +15,7 @@ install.packages('vegan',
 library(vegan) # PERMANOVA analysis and ANOSIM
 library(ggplot2)
 install.packages("ggsignif")
-library(ggsignif) # ggplot significance
+library(ggsignif) # ggplot significance (REMEMBER TO PUT AES IN GGPLOT() COMMAND OR ELSE IT WON'T WORK)
 install.packages("writexl")
 library(writexl)
 
@@ -48,7 +48,7 @@ PO4_filtered = PO4_data %>% filter(Site != "B3" & Site != "GI") %>%
   mutate(Adjusted_Concentration_uM = replace(Adjusted_Concentration_uM, Adjusted_Concentration_uM == 0, 0.1)) %>%
   filter(Adjusted_Concentration_uM <= 100)
 Sediment_filtered = Sediment_data %>% filter(Site != "B3" & Site != "GI") %>%
-  mutate(Month = month(Date, label = TRUE, abbr = FALSE)) %>% filter(Month != "October" & Month != "December") %>%
+  mutate(Month = month(Date, label = TRUE, abbr = FALSE)) %>% filter(Month != "October" & Month != "December")
 # removing B3 and GI sites from dataset, as well as adding a month column (then removing oct/dec)
 # For nutrient samples, NAs in Notes column are then replaced by porewater in order to filter out ambient samples
 # the filter function cannot filter something out from NAs 
@@ -91,17 +91,17 @@ DIN_boxplot = ggplot(data = DIN_combined, aes(y = DIN_uM, x = Estuary, fill = Es
   geom_boxplot() +
   scale_fill_manual(values = c("chartreuse3", "darkturquoise"), guide = "none") +
   # geom_jitter(aes(y = Adjusted_Concentration_uM, x = Estuary), width = 0.2) +
-  # geom_signif(
-   # comparisons = list(c("MI", "NI")), # Specify the groups to compare
-  #  map_signif_level = TRUE, # Display significance stars (e.g., *, **, ***)
-   # test = "t.test", # Or "t.test" for t-test
-   # vjust = 0.5, # Adjust vertical position of the significance bar
-   # tip_length = 0.01 # Adjust length of the tips of the significance bar
-  # ) +
+  geom_signif(
+   comparisons = list(c("MI", "NI")), # Specify the groups to compare
+  map_signif_level = TRUE, # Display significance stars (e.g., *, **, ***)
+   test = "t.test", # Or "t.test" for t-test
+   vjust = 0.5, # Adjust vertical position of the significance bar
+   tip_length = 0.01 # Adjust length of the tips of the significance bar
+  ) +
   facet_wrap(~Month, nrow = 1) + 
-  ylab("DIN Concentration (μM)") +
+  ylab("DIN Concentration (uM)") +
   xlab("Estuary") +
-  ylim(0,5000) +
+  # ylim(0,5000) +
   theme_bw()
 DIN_boxplot
 ggsave(DIN_boxplot, filename = "Figures/DIN_boxplot.pdf", device = "pdf", height = 5, width = 5) 
@@ -150,19 +150,26 @@ PO4_boxplot = ggplot(data = PO4_filtered, aes(y = Adjusted_Concentration_uM, x =
   ) +
   # geom_jitter(aes(y = Adjusted_Concentration_uM, x = Estuary), width = 0.2) +
   facet_wrap(~Month, nrow = 1) + 
-  ylab("PO4 Concentration (μM)") +
+  ylab("PO4 Concentration (uM)") +
   theme_bw()
 PO4_boxplot
 ggsave(PO4_boxplot, filename = "Figures/PO4_boxplot.pdf", device = "pdf", height = 5, width = 5) 
 
 
-Biomass_boxplot = ggplot(data = Biomass_filtered) +
-  geom_boxplot(aes(y = `Chla (ug/g)`, x = Estuary, fill = Estuary)) +
+Biomass_boxplot = ggplot(data = Biomass_filtered, aes(y = `Chla (ug/g)`, x = Estuary, fill = Estuary)) +
+  geom_boxplot() +
   scale_fill_manual(values = c("chartreuse3", "darkturquoise"), guide = "none") +
   # geom_jitter(aes(y = `Chla (ug/g)`, x = Estuary), width = 0.2) +
+  geom_signif(
+    comparisons = list(c("MI", "NI")), # Specify the groups to compare
+    map_signif_level = TRUE, # Display significance stars (e.g., *, **, ***)
+    test = "t.test", # Or "t.test" for t-test
+    vjust = 0.5, # Adjust vertical position of the significance bar
+    tip_length = 0.01 # Adjust length of the tips of the significance bar
+  ) +
   facet_wrap(~Month, nrow = 1) + 
-  ylab("Chla Concentration (μg/g)") + 
-  ylim(0,120) +
+  ylab("Chla Concentration (ug/g)") + 
+  # ylim(0,120) +
   theme_bw()
 Biomass_boxplot
 ggsave(Biomass_boxplot, filename = "Figures/Biomass_boxplot.pdf", device = "pdf", height = 5, width = 5) 
@@ -343,7 +350,7 @@ LM_data = Biomass_avg %>%
 # Step 1: Run all possible models
 
 LM_data_filtered = LM_data %>%
-  filter(mean_Chla_ug <= 40)
+ filter(mean_Chla_ug <= 50) # REDUNDANT WITH OUTLIER CHANGES AT SOURCE
 # filtering out high chla values
 
 full_model = lm(mean_Chla_ug ~ mean_DIN_uM + mean_PO4_uM + mean_500um + mean_63um + mean_less63um, data = LM_data_filtered)
@@ -373,6 +380,7 @@ parameter_estimates <- coef(final_model_best)
 
 stepwise_summary
 # PO4 most significant contributor, with small (<63) grain size minorly contributing
+# UPDATED RESULTS: clay, phosphate, and DIN contributing
 
 dw_stat <- dwtest(final_model_best)
 cat("Durbin-Watson Statistic:", dw_stat$statistic, "\n")
@@ -415,8 +423,8 @@ LM_plot
 ggsave(LM_plot, filename = "Figures/LM_plot.pdf", device = "pdf", height = 5, width = 5) 
 
 # Best predictors: PO4, smallest sed, DIN
-# adjusted r^2 of 0.349
-# with July SD point removed r^2 jumps to 0.66 !!!
+# adjusted r^2 of 0.575
+# UPDATED TO REMOVE OUTLIERS
 
 
 ### PERMANOVA for complete site comparison
@@ -440,12 +448,36 @@ permanova_data <- PERMANOVA_data %>%
   select(-Estuary, -Month, -Site)
 perm_dist<-vegdist(permanova_data, method = "bray")
 
+
+### plotting NMDS
+nmds_result <- metaMDS(permanova_data, distance = "bray", k = 2, trymax = 100)
+nmds_result
+nmds_result$stress
+plot(nmds_result)
+data.scores = as.data.frame(scores(nmds_result)$sites)
+data.scores$Month <- PERMANOVA_data$Month # add Month to data.scores framework for easy graphing
+data.scores$Estuary <- PERMANOVA_data$Estuary # add Estuary to data.scores framework for easy graphing
+
+NMDS_plot = ggplot(data.scores, aes(x = NMDS1, y = NMDS2, shape = Estuary)) +
+  geom_point(aes(color = Month), size = 3) +
+  stat_ellipse(type = "t", level = 0.95) + # 95% confidence ellipse
+  annotate("text", 
+           x = 0.3,
+           y = -0.6,
+           label = paste0("stress = ", round(nmds_result$stress, 6)),
+           size = 3) +
+  theme_bw() +
+  theme(legend.position = "right")
+NMDS_plot
+ggsave(NMDS_plot, filename = "Figures/NMDS_plot.pdf", device = "pdf", height = 5, width = 6)
+
+
 NMDS_model <- metaMDS(permanova_data, trace = FALSE)
 plot(NMDS_model, display = "sites")
 scores(NMDS_model)
 
 NMDS_model$stress
-# stress = 0.141996
+# stress = 0.1472855
 
 with(PERMANOVA_data, ordiellipse(NMDS_model, Estuary, kind = "sd", label = TRUE))
 ellipse_data_treatment <- with(PERMANOVA_data, ordiellipse(NMDS_model, Estuary, kind = "sd"))
@@ -467,7 +499,7 @@ full_model_result
 perma_result <-adonis2(perm_dist~ Estuary + Month, data = PERMANOVA_data, permutations = 999, by= "terms") #Add interaction terms - factor1*factor2
 
 perma_result
-# Estuary weakly significant (p = 0.057)
+# Estuary significant (p = 0.030)
 # Month significant (p = 0.001)
 
 
@@ -598,6 +630,10 @@ write_xlsx(forest_data, path = "Data/forest_data.xlsx")
 
 ### CERF PLOTS
 
+summary(Sediment_filtered)
+summary(DIN_limit)
+summary(PO4_limit)
+summary(Biomass_filtered)
 
 CERF_Sediment_boxplot = ggplot(data = Sediment_longer) +
   geom_boxplot(aes(y = Percent, x = Estuary, fill = `Grain Size`)) +
@@ -623,7 +659,7 @@ CERF_DIN_boxplot = ggplot(data = DIN_limit, aes(y = DIN_uM, x = Estuary, fill = 
     #vjust = 0.5, # Adjust vertical position of the significance bar
     #tip_length = 0.01 # Adjust length of the tips of the significance bar
   #) +
-  ylab("DIN Concentration (uM)") +
+  ylab(expression("DIN Concentration (" * mu * "M)")) +
   xlab("Estuary") +
   # ylim(0,5000) +
   theme_bw()
@@ -644,7 +680,7 @@ CERF_PO4_boxplot = ggplot(data = PO4_limit, aes(y = Adjusted_Concentration_uM, x
  # ) +
   # geom_jitter(aes(y = Adjusted_Concentration_uM, x = Estuary), width = 0.2) +
   # facet_wrap(~Month, nrow = 1) + 
-  ylab("PO4 Concentration (uM)") +
+  ylab(expression("PO4 Concentration (" * mu * "M)")) +
  # ylim(0,100) +
   theme_bw()
 CERF_PO4_boxplot
@@ -657,7 +693,7 @@ CERF_Biomass_boxplot = ggplot(data = Biomass_limit) +
   scale_fill_manual(values = c("chartreuse3", "darkturquoise"), guide = "none") +
   # geom_jitter(aes(y = `Chla (ug/g)`, x = Estuary), width = 0.2) +
   # facet_wrap(~Month, nrow = 1) + 
-  ylab("Chla Concentration (ug/g)") + 
+  ylab(expression("Chla Concentration ("* mu *"g/g)")) + 
   # ylim(0,50) +
   theme_bw()
 CERF_Biomass_boxplot
@@ -727,13 +763,34 @@ Month_order = c('January', 'February', 'March', 'April', 'May', 'June', 'July',
                 'August', 'September', 'October', 'November', 'December')
 Estuary_Index$Month = factor(Estuary_Index$Month, levels = Month_order)
 
-Shannon_plot = ggplot(Estuary_Index, aes(x = Month, y = mean_shannon, color = Estuary)) +
-  geom_point() +
-  scale_color_manual(values = c("chartreuse3", "darkturquoise")) +
+Shannon_plot = ggplot(Estuary_Index, aes(x = Month, y = mean_shannon, fill = Estuary)) +
+  geom_bar(position = "dodge", stat = "identity", color = "black") +
+  geom_errorbar(position = position_dodge(width = 0.9), aes(ymin = mean_shannon - sd_shannon, ymax = mean_shannon + sd_shannon), width = 0.2) +
+  scale_fill_manual(values = c("chartreuse3", "darkturquoise")) +
   ylab("Shannon Index Value") +
   xlab("Month (2026)") +
   theme_bw()
+Shannon_plot
 ggsave(Shannon_plot, filename = "Figures/Shannon_plot.pdf", device = "pdf", height = 5, width = 5) 
+
+Shannon_barplot = ggplot(data = Estuary_Index, aes(y = mean_shannon, x = Estuary, fill = Estuary)) +
+  geom_bar(position = "dodge", stat = "identity", color = "black") +
+  geom_errorbar(position = position_dodge(width = 0.9), aes(ymin = mean_shannon - sd_shannon, ymax = mean_shannon + sd_shannon), width = 0.2) +
+  scale_fill_manual(values = c("chartreuse3", "darkturquoise"), guide = "none") +
+  geom_signif(
+    comparisons = list(c("MI", "NI")), # Specify the groups to compare
+    map_signif_level = TRUE, # Display significance stars (e.g., *, **, ***)
+    test = "wilcox.test", # Or "t.test" for t-test
+    vjust = 0.25, # Adjust vertical position of the significance bar
+    tip_length = 0.01 # Adjust length of the tips of the significance bar
+  ) +
+  # geom_jitter(aes(y = Adjusted_Concentration_uM, x = Estuary), width = 0.2) +
+  facet_wrap(~Month, nrow = 1) + 
+  ylab("Shannon Index Value") +
+  theme_bw()
+Shannon_barplot
+ggsave(Shannon_barplot, filename = "Figures/Shannon_barplot.pdf", device = "pdf", height = 5, width = 5) 
+
 
 Estuary_long = Estuary_Index %>%
   pivot_longer(cols = c('Cylindrotheca', 
