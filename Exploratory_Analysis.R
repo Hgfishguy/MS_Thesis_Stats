@@ -373,6 +373,7 @@ predictor_formula <- paste(selected_predictors_split, collapse = " + ")
 formula_best <- as.formula(paste("mean_Chla_ug ~", predictor_formula)) 
 
 final_model_best <- lm(formula_best, data = LM_data_filtered) 
+coef(final_model_best) # equation: y = -0.004117707(DIN) + 0.283579766(PO4) + 0.454181721(clay) + 6.959200825
 
 stepwise_summary <- summary(final_model_best)
 
@@ -414,7 +415,7 @@ geom_point(color = "blue", size = 2) + # scatter points
            size = 4, # size the r-squared value is reported as
            color = "black") +
   labs(
-    x = "Mean Chla (ug/g)",
+    x = expression("Mean Chla ("* mu *"g/g)"),
     y = "Unstandardized Predicted Values",
     # title = "Actual vs Predicted Values for Chla"
   ) +
@@ -708,7 +709,7 @@ Diversity_wider = Diversity_longer %>%
   pivot_wider(names_from = taxonid, values_from = count)
 
 write_xlsx(Diversity_wider, path = "Data/Diversity_wider.xlsx")
-# non diatom taxa removed manually, saved as "Diversity_refined.xlsx" 
+# non diatom taxa removed manually and month column added, saved as "Diversity_refined.xlsx" 
 Diversity_refined = read_excel("Data/Diversity_refined.xlsx")
 
 Diversity_filtered = Diversity_refined %>%
@@ -781,15 +782,23 @@ Shannon_barplot = ggplot(data = Estuary_Index, aes(y = mean_shannon, x = Estuary
     comparisons = list(c("MI", "NI")), # Specify the groups to compare
     map_signif_level = TRUE, # Display significance stars (e.g., *, **, ***)
     test = "wilcox.test", # Or "t.test" for t-test
-    vjust = 0.25, # Adjust vertical position of the significance bar
+    y_position = 1.05,
+    vjust = 0.1, # Adjust vertical position of the significance bar text
     tip_length = 0.01 # Adjust length of the tips of the significance bar
   ) +
-  # geom_jitter(aes(y = Adjusted_Concentration_uM, x = Estuary), width = 0.2) +
   facet_wrap(~Month, nrow = 1) + 
   ylab("Shannon Index Value") +
   theme_bw()
 Shannon_barplot
 ggsave(Shannon_barplot, filename = "Figures/Shannon_barplot.pdf", device = "pdf", height = 5, width = 5) 
+
+Shannon_boxplot = ggplot(data = Estuary_Index) +
+  geom_boxplot(aes(y = mean_shannon, x = Estuary, fill = Estuary)) +
+  scale_fill_manual(values = c("chartreuse3", "darkturquoise"), guide = "none") +
+  ylab(expression("Shannon Diversity Index")) + 
+  theme_bw()
+Shannon_boxplot
+
 
 
 Estuary_long = Estuary_Index %>%
