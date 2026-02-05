@@ -500,7 +500,7 @@ full_model_result
 perma_result <-adonis2(perm_dist~ Estuary + Month, data = PERMANOVA_data, permutations = 999, by= "terms") #Add interaction terms - factor1*factor2
 
 perma_result
-# Estuary significant (p = 0.030)
+# Estuary significant (p = 0.033)
 # Month significant (p = 0.001)
 
 
@@ -729,8 +729,21 @@ Diversity_sum = Diversity_filtered %>%
             Stephanopyxis = sum(Stephanopyxis),
             Thalassionema = sum(Thalassionema)
             )
+Diversity_full = Diversity_filtered %>%
+  select(new_name, Cylindrotheca, 
+         Dactyliosolen, 
+         Entomoneis,
+         Navicula,
+         Nitzschia,
+         Pleurosigma,
+         `Pseudo-nitzschia`,
+         Rhizosolenia,
+         Stephanopyxis,
+         Thalassionema,)
 
 Diversity_measured = cbind(Diversity_sum, Shannon =  diversity(x = Diversity_sum[, -1], index = 'shannon'))
+Diversity_measured_full = cbind(Diversity_full, Shannon =  diversity(x = Diversity_full[, -1], index = 'shannon'))
+
 
 Diversity_Estuary = Diversity_measured %>%
   mutate(prefix = substr(new_name, 1, 2)) %>%
@@ -743,6 +756,18 @@ Diversity_Estuary = Diversity_measured %>%
     TRUE ~ "MI"
   ))
 Diversity_Estuary$Month <- sub(".*_", "", Diversity_Estuary$new_name)
+
+Diversity_Estuary_full = Diversity_measured_full %>%
+  mutate(prefix = substr(new_name, 1, 2)) %>%
+  mutate(Estuary = case_when(
+    prefix == c("A_") ~ "NI", 
+    prefix == c("B_") ~ "NI", 
+    prefix == c("BC") ~ "NI", 
+    prefix == c("CC") ~ "NI", 
+    prefix == c("OL") ~ "NI",
+    TRUE ~ "MI"
+  ))
+Diversity_Estuary_full$Month <- sub(".*_", "", Diversity_Estuary_full$new_name)
 
 Estuary_Index = Diversity_Estuary %>%
   group_by(Estuary, Month) %>%
@@ -757,12 +782,23 @@ Estuary_Index = Diversity_Estuary %>%
             Rhizosolenia = sum(Rhizosolenia),
             Stephanopyxis = sum(Stephanopyxis),
             Thalassionema = sum(Thalassionema)) %>%
+  ungroup() %>%
   print()
 
+Diversity_Estuary_full$Shannon = as.numeric(Diversity_Estuary_full$Shannon)
+Diversity_Estuary_full_filtered = Diversity_Estuary_full %>%
+  filter(Shannon >= 0.01, Shannon <= 1)
+Shannon_RCB_Model = Diversity_Estuary_full_filtered %>% anova_test(Shannon ~ Month + Estuary, effect.size = "pes")
+get_anova_table(Shannon_RCB_Model) %>% p_format(digits = 3)
+# Only Estuary seemed to have a significant affect on DIN
+
+Diversity_Estuary_full %>% group_by(Estuary) %>%
+  get_summary_stats(Shannon, type = "mean_sd")
 
 Month_order = c('January', 'February', 'March', 'April', 'May', 'June', 'July',
                 'August', 'September', 'October', 'November', 'December')
 Estuary_Index$Month = factor(Estuary_Index$Month, levels = Month_order)
+Diversity_Estuary_full$Month = factor(Diversity_Estuary_full$Month, levels = Month_order)
 
 Shannon_plot = ggplot(Estuary_Index, aes(x = Month, y = mean_shannon, fill = Estuary)) +
   geom_bar(position = "dodge", stat = "identity", color = "black") +
@@ -799,6 +835,13 @@ Shannon_boxplot = ggplot(data = Estuary_Index) +
   theme_bw()
 Shannon_boxplot
 
+Shannon_boxplot_full = ggplot(data = Diversity_Estuary_full_filtered) +
+  geom_boxplot(aes(y = Shannon, x = Estuary, fill = Estuary)) +
+  scale_fill_manual(values = c("chartreuse3", "darkturquoise"), guide = "none") +
+  ylab(expression("Shannon Diversity Index")) + 
+  theme_bw()
+Shannon_boxplot_full
+ggsave(Shannon_boxplot_full, filename = "Figures/Shannon_boxplot_full.pdf", device = "pdf", height = 5, width = 5) 
 
 
 Estuary_long = Estuary_Index %>%
@@ -818,4 +861,13 @@ Ecotaxa_diversity_barplot = ggplot(data = Estuary_long, aes(x = Estuary, y = cou
   scale_y_continuous(labels = scales::percent_format()) +
   theme_bw() +
   ylab("Percent Composition (%)") 
+Ecotaxa_diversity_barplot
 ggsave(Ecotaxa_diversity_barplot, filename = "Figures/Ecotaxa_diversity_barplot.pdf", device = "pdf", height = 5, width = 7) 
+
+Ecotaxa_diversity_barplot_sum = ggplot(data = Estuary_long, aes(x = Estuary, y = count, fill = Genus)) + 
+  geom_bar(position = "fill", stat = "identity") + 
+  scale_y_continuous(labels = scales::percent_format()) +
+  theme_bw() +
+  ylab("Percent Composition (%)") 
+Ecotaxa_diversity_barplot_sum
+ggsave(Ecotaxa_diversity_barplot_sum, filename = "Figures/Ecotaxa_diversity_barplot_sum.pdf", device = "pdf", height = 5, width = 5) 
