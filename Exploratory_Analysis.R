@@ -194,10 +194,11 @@ get_anova_table(Biomass_RB_model) %>% p_format(digits = 3)
 # both Month and Estuary seem to have an effect on Biomass (p < 0.0001)
 
 Biomass_filtered %>% group_by(Estuary) %>%
-  get_summary_stats(`Chla (ug/g)`, type = "mean_sd")
-# MI mean: 13.6, sd: 12.5
-# NI mean: 15.8, sd: 15.2
-
+  get_summary_stats(`Chla (ug/g)`, type = "mean_sd") %>%
+  mutate(cv = (sd/mean)*100)
+# MI mean: 13.6, sd: 12.5, cv: 78.4%
+# NI mean: 15.8, sd: 15.2, cv: 66.7%
+# 
 Biomass_aov = aov(`Chla (ug/g)` ~ Month + Estuary, data = Biomass_filtered)
 summary(Biomass_aov)
 # base r aov to use in further analyses (same result as rstatix RCB anova)
@@ -227,9 +228,10 @@ get_anova_table(DIN_RB_model) %>% p_format(digits = 3)
 # Only month seemed to have a significant affect on DIN
 
 DIN_combined %>% group_by(Estuary) %>%
-  get_summary_stats(DIN_uM, type = "mean_sd")
-# MI mean: 1186, sd: 1090
-# NI mean: 1201, sd: 1415
+  get_summary_stats(DIN_uM, type = "mean_sd") %>%
+  mutate(cv = (sd/mean)*100)
+# MI mean: 1186, sd: 1090, cv: 88.7%
+# NI mean: 1201, sd: 1415, cv: 95.1%
 
 # PO4 RCB
 PO4_filtered %>%
@@ -245,9 +247,10 @@ get_anova_table(PO4_RB_model) %>% p_format(digits = 3)
 # Both Estuary and Month seemed to have a significant effect on PO4 (p << 0.05)
 
 PO4_filtered %>% group_by(Estuary) %>%
-  get_summary_stats(Adjusted_Concentration_uM, type = "mean_sd")
-# MI mean: 42.3, sd: 63.7
-# NI mean: 8.95, sd: 21.9
+  get_summary_stats(Adjusted_Concentration_uM, type = "mean_sd")%>%
+  mutate(cv = (sd/mean)*100)
+# MI mean: 42.3, sd: 63.7, cv: 132%
+# NI mean: 8.95, sd: 21.9, cv: 232%
 
 # Sediment RCBs
 
@@ -287,17 +290,20 @@ get_anova_table(Clay_RB_model) %>% p_format(digits = 3)
 # Both Estuary and Month seemed to have a significant effect on clay composition (p << 0.05)
 
 Sediment_filtered %>% group_by(Estuary) %>%
-  get_summary_stats(`>500um (%)`, type = "mean_sd")
-# MI mean: 27.8, sd: 18.3 
-# NI mean: 2.52, sd: 4.72
+  get_summary_stats(`>500um (%)`, type = "mean_sd") %>%
+  mutate(cv = (sd/mean)*100)
+# MI mean: 27.8, sd: 18.3, cv: 65.6%
+# NI mean: 2.52, sd: 4.72, cv: 187%
 Sediment_filtered %>% group_by(Estuary) %>%
-  get_summary_stats(`>63um (%)`, type = "mean_sd")
-# MI mean: 63.4, sd: 24.4
-# NI mean: 71.6, sd: 18.3
+  get_summary_stats(`>63um (%)`, type = "mean_sd") %>%
+  mutate(cv = (sd/mean)*100)
+# MI mean: 63.4, sd: 24.4, cv: 38.4%
+# NI mean: 71.6, sd: 18.3, cv 25.5%
 Sediment_filtered %>% group_by(Estuary) %>%
-  get_summary_stats(`<63um (%)`, type = "mean_sd")
-# MI mean: 9.49, sd: 15.0
-# NI mean: 26.5, sd: 16.9
+  get_summary_stats(`<63um (%)`, type = "mean_sd")%>%
+  mutate(cv = (sd/mean)*100)
+# MI mean: 9.49, sd: 15.0, cv: 158%
+# NI mean: 26.5, sd: 16.9, cv: 63.9%
 
 
 ### Linear Regresion of BMA Responses
@@ -386,6 +392,7 @@ stepwise_summary
 dw_stat <- dwtest(final_model_best)
 cat("Durbin-Watson Statistic:", dw_stat$statistic, "\n")
 # DW stat: 1.917664
+# UPDATED DW stat: 2.252691 
 ols_coll_diag(final_model_best)
 
 resids <- residuals(final_model_best)
@@ -613,9 +620,12 @@ write_xlsx(DIN_combined, path = "Data/DIN_combined.xlsx")
 ### prepping for random forest analysis in chatgpt
 
 
-Biomass_forest = read_excel('/Users/suzanneguy/R_Projects/MS_Thesis_Data_Analysis/MS_Thesis_Stats/Data/BMA_Human_Impacts_Master_COPY.xlsx', sheet = 'Biomass')
-DIN_forest = read_excel('/Users/suzanneguy/R_Projects/MS_Thesis_Data_Analysis/MS_Thesis_Stats/Data/BMA_Human_Impacts_Master_COPY.xlsx', sheet = 'DIN')
-PO4_forest = read_excel('/Users/suzanneguy/R_Projects/MS_Thesis_Data_Analysis/MS_Thesis_Stats/Data/BMA_Human_Impacts_Master_COPY.xlsx', sheet = 'PO4')
+Biomass_forest = read_excel('/Users/suzanneguy/R_Projects/MS_Thesis_Data_Analysis/MS_Thesis_Stats/Data/BMA_Human_Impacts_Master_COPY.xlsx', sheet = 'Biomass') %>%
+  filter(`Chla (ug/g)` <= 50)
+DIN_forest = read_excel('/Users/suzanneguy/R_Projects/MS_Thesis_Data_Analysis/MS_Thesis_Stats/Data/BMA_Human_Impacts_Master_COPY.xlsx', sheet = 'DIN') %>%
+  filter(DIN_uM <= 4000)
+PO4_forest = read_excel('/Users/suzanneguy/R_Projects/MS_Thesis_Data_Analysis/MS_Thesis_Stats/Data/BMA_Human_Impacts_Master_COPY.xlsx', sheet = 'PO4') %>%
+  filter(PO4_uM <= 100)
 Sediment_forest = read_excel('/Users/suzanneguy/R_Projects/MS_Thesis_Data_Analysis/MS_Thesis_Stats/Data/BMA_Human_Impacts_Master_COPY.xlsx', sheet = 'Sediment')
 
 forest_joined = Biomass_forest %>%
@@ -703,14 +713,14 @@ ggsave(CERF_Biomass_boxplot, filename = "Figures/CERF_Biomass_boxplot.pdf", devi
 
 ### Community Composition Analysis (EcoTaxa)
 
-Diversity_longer = read_excel('/Users/suzanneguy/R_Projects/MS_Thesis_Data_Analysis/MS_Thesis_Stats/Data/Ecotaxa_Diversity_Full.xlsx')
+Diversity_longer = read_excel('/Users/suzanneguy/R_Projects/MS_Thesis_Data_Analysis/MS_Thesis_Stats/Data/Ecotaxa_Data_Full_UPDATED_FEB.xlsx')
 
 Diversity_wider = Diversity_longer %>%
   pivot_wider(names_from = taxonid, values_from = count)
 
 write_xlsx(Diversity_wider, path = "Data/Diversity_wider.xlsx")
 # non diatom taxa removed manually and month column added, saved as "Diversity_refined.xlsx" 
-Diversity_refined = read_excel("Data/Diversity_refined.xlsx")
+Diversity_refined = read_excel("Data/Diversity_refined_UPDATED_FEB.xlsx")
 
 Diversity_filtered = Diversity_refined %>%
   mutate(prefix = substr(sampleid, 1, 2)) %>%
@@ -790,10 +800,13 @@ Diversity_Estuary_full_filtered = Diversity_Estuary_full %>%
   filter(Shannon >= 0.01, Shannon <= 1)
 Shannon_RCB_Model = Diversity_Estuary_full_filtered %>% anova_test(Shannon ~ Month + Estuary, effect.size = "pes")
 get_anova_table(Shannon_RCB_Model) %>% p_format(digits = 3)
-# Only Estuary seemed to have a significant affect on DIN
+# Neither Month nor estuary seemed to have a significant effect on shannon index value
 
 Diversity_Estuary_full %>% group_by(Estuary) %>%
-  get_summary_stats(Shannon, type = "mean_sd")
+  get_summary_stats(Shannon, type = "mean_sd")%>%
+  mutate(cv = (sd/mean)*100)
+# MI mean: 0.784, sd: 0.169, cv: 21.3%
+# NI mean: 0.637, sd: 0.261, cv: 42.3%
 
 Month_order = c('January', 'February', 'March', 'April', 'May', 'June', 'July',
                 'August', 'September', 'October', 'November', 'December')
@@ -871,3 +884,176 @@ Ecotaxa_diversity_barplot_sum = ggplot(data = Estuary_long, aes(x = Estuary, y =
   ylab("Percent Composition (%)") 
 Ecotaxa_diversity_barplot_sum
 ggsave(Ecotaxa_diversity_barplot_sum, filename = "Figures/Ecotaxa_diversity_barplot_sum.pdf", device = "pdf", height = 5, width = 5) 
+
+
+# NMDS and PERMANOVA of diversity 
+
+diversity_perm_data = Diversity_Estuary_full_filtered %>%
+  group_by(prefix, Month, Estuary) %>%
+  summarize(
+            Cylindrotheca = mean(Cylindrotheca), 
+            Dactyliosolen = mean(Dactyliosolen), 
+            Entomoneis = mean(Entomoneis),
+            Navicula = mean(Navicula),
+            Nitzschia = mean(Nitzschia), 
+            Pleurosigma = mean(Pleurosigma),
+            `Pseudo-nitzschia` = mean(`Pseudo-nitzschia`),
+            Rhizosolenia = mean(Rhizosolenia),
+            Stephanopyxis = mean(Stephanopyxis),
+            Thalassionema = mean(Thalassionema)) %>%
+  ungroup()
+
+PERMANOVA_Diversity_data = diversity_perm_data
+
+head(PERMANOVA_Diversity_data)
+
+PERMANOVA_Diversity_data$Month<-as.factor(PERMANOVA_Diversity_data$Month) #Factor 1 (blocking)
+PERMANOVA_Diversity_data$Estuary<-as.factor(PERMANOVA_Diversity_data$Estuary) #Factor 2
+permanova_diversity_data <- PERMANOVA_Diversity_data %>%
+  select(-Estuary, -Month, -prefix)
+div_perm_dist<-vegdist(permanova_diversity_data, method = "bray")
+
+
+### plotting NMDS
+div_nmds_result <- metaMDS(permanova_diversity_data, distance = "bray", k = 2, trymax = 100)
+div_nmds_result
+div_nmds_result$stress
+#stress = 0.05958197
+
+plot(div_nmds_result)
+div_data.scores = as.data.frame(scores(div_nmds_result)$sites)
+div_data.scores$Month <- PERMANOVA_Diversity_data$Month # add Month to data.scores framework for easy graphing
+div_data.scores$Estuary <- PERMANOVA_Diversity_data$Estuary # add Estuary to data.scores framework for easy graphing
+
+Div_NMDS_plot = ggplot(div_data.scores, aes(x = NMDS1, y = NMDS2, shape = Estuary)) +
+  geom_point(aes(color = Month), size = 3) +
+  stat_ellipse(type = "t", level = 0.95) + # 95% confidence ellipse
+  annotate("text", 
+           x = -0.7,
+           y = -0.7,
+           label = paste0("stress = ", round(div_nmds_result$stress, 6)),
+           size = 3) +
+  theme_bw() +
+  theme(legend.position = "right")
+Div_NMDS_plot
+ggsave(Div_NMDS_plot, filename = "Figures/Diversitu_NMDS_plot.pdf", device = "pdf", height = 5, width = 6)
+
+
+Div_NMDS_model <- metaMDS(permanova_diversity_data, trace = FALSE)
+plot(Div_NMDS_model, display = "sites")
+scores(Div_NMDS_model)
+
+with(PERMANOVA_Diversity_data, ordiellipse(Div_NMDS_model, Estuary, kind = "sd", label = TRUE))
+div_ellipse_data_treatment <- with(PERMANOVA_Diversity_data, ordiellipse(Div_NMDS_model, Estuary, kind = "sd"))
+
+summary(div_ellipse_data_treatment)
+
+div_dispersion<-betadisper(div_perm_dist, PERMANOVA_Diversity_data$Estuary)
+
+div_dispersion
+
+anova(div_dispersion) 
+
+plot(div_dispersion, hull=FALSE, ellipse=TRUE)
+
+div_full_model_result<-adonis2(div_perm_dist~ Estuary + Month, data = PERMANOVA_Diversity_data, permutations =999, by = NULL) #currently set to check full model all together
+
+div_full_model_result
+
+div_perma_result <-adonis2(div_perm_dist~ Estuary + Month, data = PERMANOVA_Diversity_data, permutations = 999, by= "terms") #Add interaction terms - factor1*factor2
+
+div_perma_result
+# Estuary significant (p = 0.017)
+# Month significant (p = 0.033)
+
+# Stepwise multiple linear regression for diversity
+
+Estuary_shannon = Diversity_Estuary %>%
+  group_by(prefix, Estuary, Month) %>%
+  summarize(mean_shannon = mean(Shannon)) %>%
+  ungroup() %>%
+  rename(Site = prefix) %>%
+  print()
+
+Shannon_LM_data = LM_data %>% 
+  left_join(Estuary_shannon, by = c("Month", "Site")) %>%
+  na.omit() %>%
+  ungroup() %>%
+  mutate(Estuary = Estuary.x) %>%
+  select(-Estuary.x) %>%
+  select(-Estuary.y) %>%
+  print()
+
+shannon_full_model = lm(mean_shannon ~ mean_DIN_uM + mean_PO4_uM + mean_500um + mean_63um + mean_less63um, data = Shannon_LM_data)
+shannon_all_models <- ols_step_all_possible(shannon_full_model)
+shannon_all_models
+
+shannon_all_models_df <- shannon_all_models$result
+
+shannon_best_model_info <- shannon_all_models_df %>%
+  arrange(desc(adjr)) %>%
+  slice(1)
+shannon_best_model_info
+
+shannon_selected_predictors <- shannon_best_model_info$predictors[[1]]
+
+shannon_selected_predictors_split <- unlist(strsplit(shannon_selected_predictors, " "))
+
+shannon_predictor_formula <- paste(shannon_selected_predictors_split, collapse = " + ")
+
+shannon_formula_best <- as.formula(paste("mean_shannon ~", shannon_predictor_formula)) 
+
+shannon_final_model_best <- lm(shannon_formula_best, data = Shannon_LM_data) 
+coef(shannon_final_model_best) # equation: y = -7.851289e-05(DIN) + 1.817636e-03(PO4) + 6.979054e-03(clay) + 7.509971e-01
+
+shannon_stepwise_summary <- summary(shannon_final_model_best)
+
+shannon_parameter_estimates <- coef(shannon_final_model_best)
+
+shannon_stepwise_summary
+# clay, phosphate, and DIN contributing
+
+shannon_dw_stat <- dwtest(shannon_final_model_best)
+cat("Durbin-Watson Statistic:", shannon_dw_stat$statistic, "\n")
+# DW stat: 1.56716 
+
+ols_coll_diag(shannon_final_model_best)
+
+shannon_resids <- residuals(shannon_final_model_best)
+# Basic descriptive statistics
+summary(shannon_resids)
+# mean = 0.000
+
+# Normality plot of residuals
+plot(shannon_final_model_best, which = 2)
+plot(shannon_final_model_best, 1) # residual vs fitted plot.
+lillie.test(shannon_final_model_best$residuals)
+# relatively normal residuals (p = 0.2693)
+
+avPlots(shannon_final_model_best)
+
+plot(Shannon_LM_data$mean_shannon, shannon_final_model_best$fitted.values)
+
+shannon_adj_r2 <- summary(shannon_final_model_best)$adj.r.squared
+
+Shannon_LM_plot = ggplot(Shannon_LM_data, aes(x = mean_shannon, y = shannon_final_model_best$fitted.values)) + 
+  geom_point(color = "blue", size = 2) + # scatter points
+  geom_smooth(method = "lm", se = TRUE, color = "red") + # linear fit line with 95% CI
+  annotate("text",
+           x = max(Shannon_LM_data$mean_shannon) * 0.9,
+           y = max(shannon_final_model_best$fitted.values)*0.1, 
+           label = paste0("r\u00B2 = ", round(shannon_adj_r2, 3)), # "\u00B2" is the notation r^2
+           size = 4, # size the r-squared value is reported as
+           color = "black") +
+  labs(
+    x = "Mean Shannon Index Value",
+    y = "Unstandardized Predicted Values",
+    # title = "Actual vs Predicted Values for Shannon"
+  ) +
+  theme_bw()
+Shannon_LM_plot
+ggsave(Shannon_LM_plot, filename = "Figures/Shannon_LM_plot.pdf", device = "pdf", height = 5, width = 5) 
+
+
+
+
