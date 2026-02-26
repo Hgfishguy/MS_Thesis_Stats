@@ -155,7 +155,7 @@ PO4_boxplot = ggplot(data = PO4_filtered, aes(y = Adjusted_Concentration_uM, x =
 PO4_boxplot
 ggsave(PO4_boxplot, filename = "Figures/PO4_boxplot.pdf", device = "pdf", height = 5, width = 5) 
 
-
+Biomass_filtered$`Chla (ug/cm2)` = as.numeric(Biomass_filtered$`Chla (ug/cm2)`)
 Biomass_boxplot = ggplot(data = Biomass_filtered, aes(y = `Chla (ug/g)`, x = Estuary, fill = Estuary)) +
   geom_boxplot() +
   scale_fill_manual(values = c("chartreuse3", "darkturquoise"), guide = "none") +
@@ -173,6 +173,24 @@ Biomass_boxplot = ggplot(data = Biomass_filtered, aes(y = `Chla (ug/g)`, x = Est
   theme_bw()
 Biomass_boxplot
 ggsave(Biomass_boxplot, filename = "Figures/Biomass_boxplot.pdf", device = "pdf", height = 5, width = 5) 
+
+Biomass_area_boxplot = ggplot(data = Biomass_filtered, aes(y = `Chla (ug/cm2)`, x = Estuary, fill = Estuary)) +
+  geom_boxplot() +
+  scale_fill_manual(values = c("chartreuse3", "darkturquoise"), guide = "none") +
+  # geom_jitter(aes(y = `Chla (ug/g)`, x = Estuary), width = 0.2) +
+  geom_signif(
+    comparisons = list(c("MI", "NI")), # Specify the groups to compare
+    map_signif_level = TRUE, # Display significance stars (e.g., *, **, ***)
+    test = "t.test", # Or "t.test" for t-test
+    vjust = 0.5, # Adjust vertical position of the significance bar
+    tip_length = 0.01 # Adjust length of the tips of the significance bar
+  ) +
+  facet_wrap(~Month, nrow = 1) + 
+  ylab("Chla Concentration (ug/cm^2)") + 
+  # ylim(0,120) +
+  theme_bw()
+Biomass_area_boxplot
+ggsave(Biomass_area_boxplot, filename = "Figures/Biomass_area_boxplot.pdf", device = "pdf", height = 5, width = 5) 
 
 # plotting data! Notice that the jitter data points are masked by a comment
 # they were lowkey making the graphs hard to read lol
@@ -324,7 +342,7 @@ Biomass_avg
 PO4_avg = PO4_filtered %>%
   na.omit() %>%
   group_by(Month, Site, Estuary) %>%
-  summarize(mean_PO4_uM = mean(Adjusted_Concentration_uM), sd_DIN_um = sd(Adjusted_Concentration_uM))
+  summarize(mean_PO4_uM = mean(Adjusted_Concentration_uM), sd_PO4_uM = sd(Adjusted_Concentration_uM))
 PO4_avg
 
 Sed_avg = Sediment_filtered %>%
@@ -710,6 +728,15 @@ CERF_Biomass_boxplot = ggplot(data = Biomass_limit) +
 CERF_Biomass_boxplot
 ggsave(CERF_Biomass_boxplot, filename = "Figures/CERF_Biomass_boxplot.pdf", device = "pdf", height = 5, width = 2) 
 
+Biomass_area_whole_boxplot = ggplot(data = Biomass_filtered) +
+  geom_boxplot(aes(y = `Chla (ug/cm2)`, x = Estuary, fill = Estuary)) +
+  scale_fill_manual(values = c("chartreuse3", "darkturquoise"), guide = "none") +
+  # geom_jitter(aes(y = `Chla (ug/g)`, x = Estuary), width = 0.2) +
+  # facet_wrap(~Month, nrow = 1) + 
+  ylab(expression("Chla Concentration ("* mu *"g/cm^2)")) + 
+  # ylim(0,50) +
+  theme_bw()
+Biomass_area_whole_boxplot
 
 ### Community Composition Analysis (EcoTaxa)
 
@@ -807,6 +834,10 @@ Diversity_Estuary_full %>% group_by(Estuary) %>%
   mutate(cv = (sd/mean)*100)
 # MI mean: 0.784, sd: 0.169, cv: 21.3%
 # NI mean: 0.637, sd: 0.261, cv: 42.3%
+Estuary_CV = Estuary_Index %>%
+  mutate(CV = ((sd_shannon/mean_shannon)*100))
+t.test(CV ~ Estuary, Estuary_CV, var.equal = FALSE, alternative = "two.sided")
+# cv not different (p = 0.7892)
 
 Month_order = c('January', 'February', 'March', 'April', 'May', 'June', 'July',
                 'August', 'September', 'October', 'November', 'December')
@@ -1055,5 +1086,19 @@ Shannon_LM_plot
 ggsave(Shannon_LM_plot, filename = "Figures/Shannon_LM_plot.pdf", device = "pdf", height = 5, width = 5) 
 
 
+### Comparing Coefficients of Variation
 
+Estuary_CV = Estuary_Index %>%
+  mutate(CV = ((sd_shannon/mean_shannon)*100))
+t.test(CV ~ Estuary, Estuary_CV, var.equal = FALSE, alternative = "two.sided")
+# cv not different (p = 0.7892)
 
+Biomass_CV = Biomass_avg %>%
+  mutate(CV = ((sd_Chla_ug/mean_Chla_ug)*100))
+t.test(CV ~ Estuary, Biomass_CV, var.equal = FALSE, alternative = "two.sided")
+# cv not different (p = 0.0704)
+
+PO4_CV = PO4_avg %>%
+  mutate(CV = ((sd_PO4_uM/mean_PO4_uM)*100))
+t.test(CV ~ Estuary, PO4_CV, var.equal = FALSE, alternative = "two.sided")
+# cv not different (p = 0.1337)
