@@ -104,7 +104,7 @@ plot(LM_data_filtered$mean_porosity, final_model_best$fitted.values)
 
 adj_r2 <- summary(final_model_best)$adj.r.squared
 
-LM_plot = ggplot(LM_data_filtered, aes(x = mean_porosity, y = final_model_best$fitted.values)) + 
+Sed_LM_plot = ggplot(LM_data_filtered, aes(x = mean_porosity, y = final_model_best$fitted.values)) + 
   geom_point(color = "blue", size = 2) + # scatter points
   geom_smooth(method = "lm", se = TRUE, color = "red") + # linear fit line with 95% CI
   annotate("text",
@@ -119,7 +119,33 @@ LM_plot = ggplot(LM_data_filtered, aes(x = mean_porosity, y = final_model_best$f
     title = bm_equation
   ) +
   theme_bw()
-LM_plot
+Sed_LM_plot
+ggsave(Sed_LM_plot, filename = "Figures/Sediment_LM_plot.pdf", device = "pdf", height = 5, width = 5)
 
-  
-  
+### Normal plots n shit
+
+Sediment_avg_longer = Sediment_complete_avg %>%
+  pivot_longer(cols = c(mean_500um, mean_63um, mean_less63um), names_to = "Grain Size", values_to = "Percent") %>%
+  mutate(`Grain Size` = fct_relevel(`Grain Size`, "mean_500um", "mean_63um", "mean_less63um")) %>%
+  na.omit()
+
+Sediment_avg_longer_B3GI = Sediment_avg_longer %>% filter(Site == "B3" | Site == "GI")
+Sediment_boxplot = ggplot(data = Sediment_avg_longer_B3GI) +
+  geom_boxplot(aes(y = Percent, x = Elevation, fill = `Grain Size`)) +
+  scale_fill_manual(values = c("gray", "beige", "chocolate4")) +
+  facet_wrap(~Site, nrow = 1) + 
+  ylab("Grain Size (%)") +
+  xlab("Estuary") +
+  ylim(0,100) +
+  theme_bw()
+Sediment_boxplot
+
+Porosity_filtered_B3GI = Porosity_filtered %>% filter(Site == "B3" | Site == "GI")
+Porosity_boxplot = ggplot(data = Porosity_filtered_B3GI) +
+  geom_boxplot(aes(y = Porosity, x = Elevation)) +
+ # scale_fill_manual(values = c("gray", "beige", "chocolate4")) +
+  facet_wrap(~Site, nrow = 1) + 
+  ylab("Grain Size (%)") +
+  xlab("Estuary") +
+  theme_bw()
+Porosity_boxplot
