@@ -462,7 +462,7 @@ ggsave(LM_plot, filename = "Figures/LM_plot.pdf", device = "pdf", height = 5, wi
 # DOESN'T WORK,  KEEPING FOR NOW
 
 perm_data = LM_data %>%
-  select(-sd_Chla_ug, -sd_DIN_uM, -sd_DIN_um, -sd_500um, -sd_63um, -sd_less63um)
+  select(-sd_Chla_ug, -sd_DIN_uM, -sd_PO4_uM, -sd_500um, -sd_63um, -sd_less63um)
 
 PERMANOVA_data = perm_data
 
@@ -1102,3 +1102,29 @@ PO4_CV = PO4_avg %>%
   mutate(CV = ((sd_PO4_uM/mean_PO4_uM)*100))
 t.test(CV ~ Estuary, PO4_CV, var.equal = FALSE, alternative = "two.sided")
 # cv not different (p = 0.1337)
+
+
+### Getting ready for publication 
+# MI:NI nutrient data, tying up loose ends
+
+Rerun_data = LM_data %>%
+  group_by(Month, Estuary) %>%
+  summarize(mean_PO4_uM = median(mean_PO4_uM), mean_DIN_uM = median(mean_DIN_uM)) %>%
+  ungroup() %>%
+  pivot_wider(names_from = Estuary, values_from = c(mean_DIN_uM, mean_PO4_uM))
+
+
+Rerun_data_ratio = Rerun_data %>%
+  mutate(DIN_MI_NI_ratio = mean_DIN_uM_MI/mean_DIN_uM_NI, 
+         PO4_MI_NI_ratio = mean_PO4_uM_MI/mean_PO4_uM_NI)
+t.test(Rerun_data_ratio$DIN_MI_NI_ratio, mu = 1, alternative = "two.sided")
+t.test(Rerun_data_ratio$PO4_MI_NI_ratio, mu = 1, alternative = "two.sided")
+
+Rerun_data_longer = Rerun_data_ratio %>%
+  pivot_longer(cols = c(DIN_MI_NI_ratio, PO4_MI_NI_ratio), values_to = "Ratio", names_to = "Nutrient")
+
+Ratio_plot = ggplot(Rerun_data_longer) +
+  geom_boxplot(aes(y = Ratio, x = Nutrient, fill = Nutrient)) +
+  theme_bw() 
+Ratio_plot
+
