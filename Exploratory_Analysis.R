@@ -18,6 +18,8 @@ install.packages("ggsignif")
 library(ggsignif) # ggplot significance (REMEMBER TO PUT AES IN GGPLOT() COMMAND OR ELSE IT WON'T WORK)
 install.packages("writexl")
 library(writexl)
+install.packages("ggtext")
+library(ggtext) # for custom graph font formatting 
 
 ### READING AND FILTERING
 
@@ -1109,7 +1111,7 @@ t.test(CV ~ Estuary, PO4_CV, var.equal = FALSE, alternative = "two.sided")
 
 Rerun_data = LM_data %>%
   group_by(Month, Estuary) %>%
-  summarize(mean_PO4_uM = median(mean_PO4_uM), mean_DIN_uM = median(mean_DIN_uM)) %>%
+  summarize(mean_PO4_uM = mean(mean_PO4_uM), mean_DIN_uM = mean(mean_DIN_uM)) %>%
   ungroup() %>%
   pivot_wider(names_from = Estuary, values_from = c(mean_DIN_uM, mean_PO4_uM))
 
@@ -1119,7 +1121,7 @@ Rerun_data_ratio = Rerun_data %>%
          PO4_MI_NI_ratio = mean_PO4_uM_MI/mean_PO4_uM_NI)
 t.test(Rerun_data_ratio$DIN_MI_NI_ratio, mu = 1, alternative = "two.sided")
 t.test(Rerun_data_ratio$PO4_MI_NI_ratio, mu = 1, alternative = "two.sided")
-
+# neither significant, possibly issue with means/medians?
 Rerun_data_longer = Rerun_data_ratio %>%
   pivot_longer(cols = c(DIN_MI_NI_ratio, PO4_MI_NI_ratio), values_to = "Ratio", names_to = "Nutrient")
 
@@ -1127,4 +1129,65 @@ Ratio_plot = ggplot(Rerun_data_longer) +
   geom_boxplot(aes(y = Ratio, x = Nutrient, fill = Nutrient)) +
   theme_bw() 
 Ratio_plot
+
+
+DIN_new = DIN_combined %>%
+  filter(Month != "March")
+PO4_new = PO4_filtered %>%
+  filter(Month != "March")
+Nutrient_all = DIN_new %>% 
+  mutate(Replicate = Replicate.x) %>%
+  left_join(PO4_new, by = c("Month", "Site", "Replicate")) %>%
+  mutate(Estuary = Estuary.x) %>%
+  select(Estuary, Site, Replicate, Month, Adjusted_Concentration_uM, DIN_uM) %>%
+  na.omit() %>%
+  ungroup()
+
+Nutrient_median = Nutrient_all %>%
+  group_by(Month, Estuary) %>%
+  summarize(median_PO4_uM = median(Adjusted_Concentration_uM), median_DIN_uM = median(DIN_uM)) %>%
+  ungroup() %>%
+  pivot_wider(names_from = Estuary, values_from = c(median_DIN_uM, median_PO4_uM)) %>%
+  mutate(DIN_MI_NI_ratio = median_DIN_uM_MI/median_DIN_uM_NI, 
+         PO4_MI_NI_ratio = median_PO4_uM_MI/median_PO4_uM_NI)
+
+t.test(Nutrient_median$DIN_MI_NI_ratio, mu = 1, alternative = "two.sided")
+t.test(Nutrient_median$PO4_MI_NI_ratio, mu = 1, alternative = "two.sided")
+  
+Nutrient_median_longer = Nutrient_median %>%
+  pivot_longer(cols = c(DIN_MI_NI_ratio, PO4_MI_NI_ratio), values_to = "Ratio", names_to = "Nutrient")
+Nutrient_Ratio_plot = ggplot(Nutrient_median_longer) +
+  geom_boxplot(aes(y = Ratio, x = Nutrient, fill = Nutrient)) +
+  labs(title = "Median") +
+  theme_bw()
+Nutrient_Ratio_plot
+
+Nutrient_mean = Nutrient_all %>%
+  group_by(Month, Estuary) %>%
+  summarize(mean_PO4_uM = mean(Adjusted_Concentration_uM), mean_DIN_uM = mean(DIN_uM)) %>%
+  ungroup() %>%
+  pivot_wider(names_from = Estuary, values_from = c(mean_DIN_uM, mean_PO4_uM)) %>%
+  mutate(DIN = mean_DIN_uM_MI/mean_DIN_uM_NI, 
+         PO4 = mean_PO4_uM_MI/mean_PO4_uM_NI)
+Nutrient_mean_longer = Nutrient_mean %>%
+  pivot_longer(cols = c(DIN, PO4), values_to = "Ratio", names_to = "Nutrient")
+Nutrient_Ratio_plot = ggplot(Nutrient_mean_longer) +
+  geom_boxplot(aes(y = Ratio, x = Nutrient, fill = Nutrient)) + 
+  geom_hline(yintercept = 1, linetype = "dashed") +
+  scale_fill_manual(name = "Nutrient", values = c("brown3", "cornflowerblue")) +
+  labs(caption = paste0("DIN: ", "t = ", round(DIN_t$statistic, 3), ", p = ", 
+                                   round(DIN_t$p.value, 3), ", n = 5", "\n", 
+                                   "PO4: ", "t = ", round(PO4_t$statistic, 3), ", p = ", 
+                                   round(PO4_t$p.value, 3), ", n = 5")) +
+  scale_y_continuous(breaks = c(0, 1, 5, 10, 15), labels = c(0, "**1**", 5, 10, 15)) + 
+  ylab("Ratio (MI:NI)") +
+  theme_bw() +
+  theme(axis.text.y = element_markdown(), legend.position = "none") # allows bolding of y-axis labels ("**1**")
+Nutrient_Ratio_plot
+ggsave(Nutrient_Ratio_plot, filename = "Figures/Nutrient_Ratio_plot.pdf", device = "pdf", height = 5, width = 5) 
+
+
+DIN_t = t.test(Nutrient_mean$DIN, mu = 1, alternative = "two.sided")
+PO4_t = t.test(Nutrient_mean$PO4, mu = 1, alternative = "two.sided")
+DIN_t$p.value
 
