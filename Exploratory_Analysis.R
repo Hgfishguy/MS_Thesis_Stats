@@ -782,7 +782,7 @@ Diversity_full = Diversity_filtered %>%
 
 Diversity_measured = cbind(Diversity_sum, Shannon =  diversity(x = Diversity_sum[, -1], index = 'shannon'))
 Diversity_measured_full = cbind(Diversity_full, Shannon =  diversity(x = Diversity_full[, -1], index = 'shannon'))
-Hill_measured_full = cbind(Diversity_full, Hill = renyi(Diversity_full[, -1], scales = c(1, 2), hill = TRUE))
+Hill_measured_full = cbind(Diversity_full, Hill = renyi(Diversity_full[, -1], scales = c(0, 1, 2), hill = TRUE))
 
 
 Diversity_Estuary = Diversity_measured %>%
@@ -844,13 +844,15 @@ Diversity_Estuary_full_filtered = Diversity_Estuary_full %>%
 Shannon_RCB_Model = Diversity_Estuary_full_filtered %>% anova_test(Shannon ~ Month + Estuary, effect.size = "pes")
 get_anova_table(Shannon_RCB_Model) %>% p_format(digits = 3)
 # Neither Month nor estuary seemed to have a significant effect on shannon index value
+Hill_0_RCB_Model = Hill_Estuary_full %>% anova_test(Hill.0 ~ Month + Estuary, effect.size = "pes")
+get_anova_table(Hill_0_RCB_Model) %>% p_format(digits = 3)
 Hill_1_RCB_Model = Hill_Estuary_full %>% anova_test(Hill.1 ~ Month + Estuary, effect.size = "pes")
 get_anova_table(Hill_1_RCB_Model) %>% p_format(digits = 3)
 Hill_2_RCB_Model = Hill_Estuary_full %>% anova_test(Hill.2 ~ Month + Estuary, effect.size = "pes")
 get_anova_table(Hill_2_RCB_Model) %>% p_format(digits = 3)
-# Both month and estuary seemed to significantly influence Hill.1 but not Hill.2
+# Both month and estuary seemed to significantly influence Hill.1 & 0 but not Hill.2
 
-
+Hill_0_RCB_Model$p[2]
 Diversity_Estuary_full %>% group_by(Estuary) %>%
   get_summary_stats(Shannon, type = "mean_sd")%>%
   mutate(cv = (sd/mean)*100)
@@ -860,11 +862,21 @@ Estuary_CV = Estuary_Index %>%
   mutate(CV = ((sd_shannon/mean_shannon)*100))
 t.test(CV ~ Estuary, Estuary_CV, var.equal = FALSE, alternative = "two.sided")
 # cv not different (p = 0.7892)
+Hill_Estuary_full %>% group_by(Estuary) %>%
+  get_summary_stats(Hill.1, type = "mean_sd")%>%
+  mutate(cv = (sd/mean)*100)
+Hill_Estuary_full %>% group_by(Estuary) %>%
+  get_summary_stats(Hill.0, type = "mean_sd")%>%
+  mutate(cv = (sd/mean)*100)
+Hill_Estuary_full %>% group_by(Estuary) %>%
+  get_summary_stats(Hill.2, type = "mean_sd")%>%
+  mutate(cv = (sd/mean)*100)
 
 Month_order = c('January', 'February', 'March', 'April', 'May', 'June', 'July',
                 'August', 'September', 'October', 'November', 'December')
 Estuary_Index$Month = factor(Estuary_Index$Month, levels = Month_order)
 Diversity_Estuary_full$Month = factor(Diversity_Estuary_full$Month, levels = Month_order)
+Hill_Estuary_full$Month = factor(Hill_Estuary_full$Month, levels = Month_order)
 
 Shannon_plot = ggplot(Estuary_Index, aes(x = Month, y = mean_shannon, fill = Estuary)) +
   geom_bar(position = "dodge", stat = "identity", color = "black") +
@@ -920,6 +932,15 @@ Hill_1_boxplot_full = ggplot(data = Hill_Estuary_full) +
 Hill_1_boxplot_full
 ggsave(Hill_1_boxplot_full, filename = "Figures/Hill_1_boxplot_full.pdf", device = "pdf", height = 5, width = 5) 
 
+Hill_1_boxplot_monthly = ggplot(data = Hill_Estuary_full) +
+  geom_boxplot(aes(y = `Hill.1`, x = Estuary, fill = Estuary)) +
+  scale_fill_manual(values = c("chartreuse3", "darkturquoise"), guide = "none") +
+  ylab(expression("Hill-Shannon Diversity")) + 
+ # labs(caption = paste0("F = ", round(Hill_1_RCB_Model$F, 3), ", p = ", 
+                       # round(Hill_1_RCB_Model$p, 3), ", n = 68" ))+
+  facet_wrap(~Month, nrow = 1) + 
+  theme_bw()
+Hill_1_boxplot_monthly 
 
 
 Hill_2_boxplot_full = ggplot(data = Hill_Estuary_full) +
@@ -928,6 +949,41 @@ Hill_2_boxplot_full = ggplot(data = Hill_Estuary_full) +
   ylab(expression("Hill 2 Diversity Index")) + 
   theme_bw()
 Hill_2_boxplot_full
+
+Hill_Estuary_full_renamed = Hill_Estuary_full %>%
+  rename(`q = 0` = Hill.0, `q = 1` = Hill.1, `q = 2` = Hill.2)
+
+Hill_Estuary_longer = Hill_Estuary_full_renamed %>%
+  pivot_longer(cols = c(`q = 0`, `q = 1`, `q = 2`), names_to = "Order", values_to = "Hill_Diversity")
+
+# Define manual annotation data
+anno_df <- data.frame(
+  group_var = c("A", "B", "C"), # For facets if needed
+  start = c(0.75, 1, 1.25),
+  end = c(1.75, 2, 2.25),
+  y = c(11, 12, 13),
+  label = c("***", "*", "NS"))
+
+Hill_combined_boxplot_full = ggplot(data = Hill_Estuary_longer) +
+  geom_boxplot(aes(y = Hill_Diversity, x = Estuary, fill = Order)) +
+ scale_fill_manual(values = c("chartreuse3", "turquoise3", "coral3")) +
+  geom_signif(
+    data = anno_df,
+    aes(xmin = start, xmax = end, y_position = y, annotations = label),
+    manual = TRUE
+  ) +
+  ylab(expression("Hill Number")) + 
+  labs(caption = paste0(
+    "q = 0, ", "F = ", round(Hill_0_RCB_Model$F[2], 3), ", p < 0.0001 ", ", n = 68", "\n",
+    "q = 1, ", "F = ", round(Hill_1_RCB_Model$F[2], 3), ", p = ", 
+    round(Hill_1_RCB_Model$p[2], 3), ", n = 68", "\n",
+    "q = 2, ", "F = ", round(Hill_2_RCB_Model$F[2], 3), ", p = ", 
+                        round(Hill_2_RCB_Model$p[2], 3), ", n = 68" ))+
+  ylim(0, 13.5) +
+  theme_bw()
+Hill_combined_boxplot_full
+ggsave(Hill_combined_boxplot_full, filename = "Figures/Hill_combined_boxplot_full.pdf", device = "pdf", height = 5, width = 5) 
+
 
 Estuary_long = Estuary_Index %>%
   pivot_longer(cols = c('Cylindrotheca', 
