@@ -865,6 +865,7 @@ t.test(CV ~ Estuary, Estuary_CV, var.equal = FALSE, alternative = "two.sided")
 Hill_Estuary_full %>% group_by(Estuary) %>%
   get_summary_stats(Hill.1, type = "mean_sd")%>%
   mutate(cv = (sd/mean)*100)
+t.test(cv ~ Estuary, Estuary_CV, var.equal = FALSE, alternative = "two.sided")
 Hill_Estuary_full %>% group_by(Estuary) %>%
   get_summary_stats(Hill.0, type = "mean_sd")%>%
   mutate(cv = (sd/mean)*100)
@@ -966,7 +967,8 @@ anno_df <- data.frame(
 
 Hill_combined_boxplot_full = ggplot(data = Hill_Estuary_longer) +
   geom_boxplot(aes(y = Hill_Diversity, x = Estuary, fill = Order)) +
- scale_fill_manual(values = c("chartreuse3", "turquoise3", "coral3")) +
+ scale_fill_manual(labels = c(expression(''^0*D), expression(''^1*D), expression(''^2*D)), 
+                   values = c("chartreuse3", "turquoise3", "coral3")) +
   geom_signif(
     data = anno_df,
     aes(xmin = start, xmax = end, y_position = y, annotations = label),
@@ -983,6 +985,16 @@ Hill_combined_boxplot_full = ggplot(data = Hill_Estuary_longer) +
   theme_bw()
 Hill_combined_boxplot_full
 ggsave(Hill_combined_boxplot_full, filename = "Figures/Hill_combined_boxplot_full.pdf", device = "pdf", height = 5, width = 5) 
+
+Hill_combined_boxplot_monthly = ggplot(data = Hill_Estuary_longer) +
+  geom_boxplot(aes(y = Hill_Diversity, x = Estuary, fill = Order)) +
+  scale_fill_manual(labels = c(expression(''^0*D), expression(''^1*D), expression(''^2*D)), 
+                    values = c("chartreuse3", "turquoise3", "coral3")) +
+  ylab(expression("Hill Number")) + 
+  facet_wrap(~Month, nrow = 1) +
+  theme_bw()
+Hill_combined_boxplot_monthly
+
 
 
 Estuary_long = Estuary_Index %>%
