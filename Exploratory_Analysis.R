@@ -995,6 +995,21 @@ Hill_combined_boxplot_monthly = ggplot(data = Hill_Estuary_longer) +
   theme_bw()
 Hill_combined_boxplot_monthly
 
+Hill_summary_monthly = Hill_Estuary_longer %>%
+  group_by(Estuary, Month, Order) %>%
+  summarize(mean_hill = mean(Hill_Diversity), sd_hill = sd(Hill_Diversity)) %>%
+  ungroup()
+
+Hill_barplot_monthly = ggplot(data = Hill_summary_monthly, aes(y = mean_hill, x = Estuary, fill = Order)) +
+  geom_bar(position = "dodge", stat = "identity", color = "black") +
+  geom_errorbar(position = position_dodge(width = 0.9), aes(ymin = mean_hill - sd_hill, ymax = mean_hill + sd_hill), width = 0.2) +
+  scale_fill_manual(labels = c(expression(''^0*D), expression(''^1*D), expression(''^2*D)), 
+                    values = c("chartreuse3", "turquoise3", "coral3")) +
+  facet_wrap(~Month, nrow = 1) + 
+  ylab("Hill Number") +
+  theme_bw()
+Hill_barplot_monthly
+ggsave(Hill_barplot_monthly, filename = "Figures/Hill_barplot_monthly.pdf", device = "pdf", height = 5, width = 5) 
 
 
 Estuary_long = Estuary_Index %>%
@@ -1194,6 +1209,252 @@ Shannon_LM_plot = ggplot(Shannon_LM_data, aes(x = mean_shannon, y = shannon_fina
 Shannon_LM_plot
 ggsave(Shannon_LM_plot, filename = "Figures/Shannon_LM_plot.pdf", device = "pdf", height = 5, width = 5) 
 
+
+# Hill Diversity LM
+
+Estuary_Hill = Hill_Estuary_full_renamed %>%
+  group_by(prefix, Estuary, Month) %>%
+  summarize(mean_Hill.1 = mean(`q = 1`), mean_Hill.0 = mean(`q = 0`), mean_Hill.2 = mean(`q = 2`)) %>%
+  ungroup() %>%
+  rename(Site = prefix) %>%
+  print()
+
+LM_data$Month = as.factor(as.character(LM_data$Month))
+Estuary_Hill$Month = as.factor(as.character(Estuary_Hill$Month))
+class(LM_data$Month)
+class(Estuary_Hill$Month)
+# issues with factor orders
+
+Hill_LM_data = LM_data %>% 
+  left_join(Estuary_Hill, by = c("Month", "Site")) %>%
+  na.omit() %>%
+  ungroup() %>%
+  mutate(Estuary = Estuary.x) %>%
+  select(-Estuary.x) %>%
+  select(-Estuary.y) %>%
+  print()
+
+# HILL 1 (q = 1)
+hill_full_model = lm(mean_Hill.1 ~ mean_DIN_uM + mean_PO4_uM + mean_500um + mean_63um + mean_less63um, data = Hill_LM_data)
+hill_all_models <- ols_step_all_possible(hill_full_model)
+hill_all_models
+
+hill_all_models_df <- hill_all_models$result
+
+hill_best_model_info <- hill_all_models_df %>%
+  arrange(desc(adjr)) %>%
+  slice(1)
+hill_best_model_info
+
+hill_selected_predictors <- hill_best_model_info$predictors[[1]]
+
+hill_selected_predictors_split <- unlist(strsplit(hill_selected_predictors, " "))
+
+hill_predictor_formula <- paste(hill_selected_predictors_split, collapse = " + ")
+
+hill_formula_best <- as.formula(paste("mean_Hill.1 ~", hill_predictor_formula)) 
+
+hill_final_model_best <- lm(hill_formula_best, data = Hill_LM_data) 
+coef(hill_final_model_best) # equation: y = -7.851289e-05(DIN) + 1.817636e-03(PO4) + 6.979054e-03(clay) + 7.509971e-01
+
+hill_stepwise_summary <- summary(hill_final_model_best)
+
+hill_parameter_estimates <- coef(hill_final_model_best)
+
+hill_stepwise_summary
+# clay, phosphate, and DIN contributing
+
+hill_dw_stat <- dwtest(hill_final_model_best)
+cat("Durbin-Watson Statistic:", hill_dw_stat$statistic, "\n")
+# DW stat: 1.946367
+
+ols_coll_diag(hill_final_model_best)
+
+hill_resids <- residuals(hill_final_model_best)
+# Basic descriptive statistics
+summary(hill_resids)
+# mean = 0.000
+
+# Normality plot of residuals
+plot(hill_final_model_best, which = 2)
+plot(hill_final_model_best, 1) # residual vs fitted plot.
+lillie.test(hill_final_model_best$residuals)
+# relatively normal residuals (p = 0.2693)
+
+avPlots(hill_final_model_best)
+
+plot(Hill_LM_data$mean_Hill.1, hill_final_model_best$fitted.values)
+
+hill_adj_r2 <- summary(hill_final_model_best)$adj.r.squared
+
+summary(hill_final_model_best) 
+# slope > 1
+
+Hill_1_LM_plot = ggplot(Hill_LM_data, aes(x = mean_Hill.1, y = hill_final_model_best$fitted.values)) + 
+  geom_point(color = "blue", size = 2) + # scatter points
+  geom_smooth(method = "lm", se = TRUE, color = "red") + # linear fit line with 95% CI
+  annotate("text",
+           x = max(Hill_LM_data$mean_Hill.1) * 0.9,
+           y = max(hill_final_model_best$fitted.values)*0.1, 
+           label = paste0("r\u00B2 = ", round(hill_adj_r2, 3)), # "\u00B2" is the notation r^2
+           size = 4, # size the r-squared value is reported as
+           color = "black") +
+  labs(
+    x = "Mean Hill Number (q = 1)",
+    y = "Unstandardized Predicted Values",
+    # title = "Actual vs Predicted Values for Shannon"
+  ) +
+  theme_bw()
+Hill_1_LM_plot
+ggsave(Hill_1_LM_plot, filename = "Figures/Hill_1_LM_plot.pdf", device = "pdf", height = 5, width = 5)
+
+# Hill 0 (q = 0)
+hill_full_model = lm(mean_Hill.0 ~ mean_DIN_uM + mean_PO4_uM + mean_500um + mean_63um + mean_less63um, data = Hill_LM_data)
+hill_all_models <- ols_step_all_possible(hill_full_model)
+hill_all_models
+
+hill_all_models_df <- hill_all_models$result
+
+hill_best_model_info <- hill_all_models_df %>%
+  arrange(desc(adjr)) %>%
+  slice(1)
+hill_best_model_info
+
+hill_selected_predictors <- hill_best_model_info$predictors[[1]]
+
+hill_selected_predictors_split <- unlist(strsplit(hill_selected_predictors, " "))
+
+hill_predictor_formula <- paste(hill_selected_predictors_split, collapse = " + ")
+
+hill_formula_best <- as.formula(paste("mean_Hill.0 ~", hill_predictor_formula)) 
+
+hill_final_model_best <- lm(hill_formula_best, data = Hill_LM_data) 
+coef(hill_final_model_best) # equation: y = -7.851289e-05(DIN) + 1.817636e-03(PO4) + 6.979054e-03(clay) + 7.509971e-01
+
+hill_stepwise_summary <- summary(hill_final_model_best)
+
+hill_parameter_estimates <- coef(hill_final_model_best)
+
+hill_stepwise_summary
+# clay, phosphate, and DIN contributing
+
+hill_dw_stat <- dwtest(hill_final_model_best)
+cat("Durbin-Watson Statistic:", hill_dw_stat$statistic, "\n")
+# DW stat: 1.946367
+
+ols_coll_diag(hill_final_model_best)
+
+hill_resids <- residuals(hill_final_model_best)
+# Basic descriptive statistics
+summary(hill_resids)
+# mean = 0.000
+
+# Normality plot of residuals
+plot(hill_final_model_best, which = 2)
+plot(hill_final_model_best, 1) # residual vs fitted plot.
+lillie.test(hill_final_model_best$residuals)
+# relatively normal residuals (p = 0.2693)
+
+avPlots(hill_final_model_best)
+
+plot(Hill_LM_data$mean_Hill.0, hill_final_model_best$fitted.values)
+
+hill_adj_r2 <- summary(hill_final_model_best)$adj.r.squared
+
+summary(hill_final_model_best) 
+# slope > 1
+
+Hill_0_LM_plot = ggplot(Hill_LM_data, aes(x = mean_Hill.0, y = hill_final_model_best$fitted.values)) + 
+  geom_point(color = "blue", size = 2) + # scatter points
+  geom_smooth(method = "lm", se = TRUE, color = "red") + # linear fit line with 95% CI
+  annotate("text",
+           x = max(Hill_LM_data$mean_Hill.0) * 0.9,
+           y = max(hill_final_model_best$fitted.values)*0.1, 
+           label = paste0("r\u00B2 = ", round(hill_adj_r2, 3)), # "\u00B2" is the notation r^2
+           size = 4, # size the r-squared value is reported as
+           color = "black") +
+  labs(
+    x = "Mean Hill Number (q = 1)",
+    y = "Unstandardized Predicted Values",
+    # title = "Actual vs Predicted Values for Shannon"
+  ) +
+  theme_bw()
+Hill_0_LM_plot
+ggsave(Hill_0_LM_plot, filename = "Figures/Hill_0_LM_plot.pdf", device = "pdf", height = 5, width = 5)
+
+# Hill 2 (q = 2)
+hill_full_model = lm(mean_Hill.2 ~ mean_DIN_uM + mean_PO4_uM + mean_500um + mean_63um + mean_less63um, data = Hill_LM_data)
+hill_all_models <- ols_step_all_possible(hill_full_model)
+hill_all_models
+
+hill_all_models_df <- hill_all_models$result
+
+hill_best_model_info <- hill_all_models_df %>%
+  arrange(desc(adjr)) %>%
+  slice(1)
+hill_best_model_info
+
+hill_selected_predictors <- hill_best_model_info$predictors[[1]]
+
+hill_selected_predictors_split <- unlist(strsplit(hill_selected_predictors, " "))
+
+hill_predictor_formula <- paste(hill_selected_predictors_split, collapse = " + ")
+
+hill_formula_best <- as.formula(paste("mean_Hill.2 ~", hill_predictor_formula)) 
+
+hill_final_model_best <- lm(hill_formula_best, data = Hill_LM_data) 
+coef(hill_final_model_best) # equation: y = -7.851289e-05(DIN) + 1.817636e-03(PO4) + 6.979054e-03(clay) + 7.509971e-01
+
+hill_stepwise_summary <- summary(hill_final_model_best)
+
+hill_parameter_estimates <- coef(hill_final_model_best)
+
+hill_stepwise_summary
+# clay, phosphate, and DIN contributing
+
+hill_dw_stat <- dwtest(hill_final_model_best)
+cat("Durbin-Watson Statistic:", hill_dw_stat$statistic, "\n")
+# DW stat: 1.946367
+
+ols_coll_diag(hill_final_model_best)
+
+hill_resids <- residuals(hill_final_model_best)
+# Basic descriptive statistics
+summary(hill_resids)
+# mean = 0.000
+
+# Normality plot of residuals
+plot(hill_final_model_best, which = 2)
+plot(hill_final_model_best, 1) # residual vs fitted plot.
+lillie.test(hill_final_model_best$residuals)
+# relatively normal residuals (p = 0.2693)
+
+avPlots(hill_final_model_best)
+
+plot(Hill_LM_data$mean_Hill.2, hill_final_model_best$fitted.values)
+
+hill_adj_r2 <- summary(hill_final_model_best)$adj.r.squared
+
+summary(hill_final_model_best) 
+# slope > 1
+
+Hill_2_LM_plot = ggplot(Hill_LM_data, aes(x = mean_Hill.2, y = hill_final_model_best$fitted.values)) + 
+  geom_point(color = "blue", size = 2) + # scatter points
+  geom_smooth(method = "lm", se = TRUE, color = "red") + # linear fit line with 95% CI
+  annotate("text",
+           x = max(Hill_LM_data$mean_Hill.2) * 0.9,
+           y = max(hill_final_model_best$fitted.values)*0.1, 
+           label = paste0("r\u00B2 = ", round(hill_adj_r2, 3)), # "\u00B2" is the notation r^2
+           size = 4, # size the r-squared value is reported as
+           color = "black") +
+  labs(
+    x = "Mean Hill Number (q = 1)",
+    y = "Unstandardized Predicted Values",
+    # title = "Actual vs Predicted Values for Shannon"
+  ) +
+  theme_bw()
+Hill_2_LM_plot
+ggsave(Hill_2_LM_plot, filename = "Figures/Hill_2_LM_plot.pdf", device = "pdf", height = 5, width = 5)
 
 ### Comparing Coefficients of Variation
 

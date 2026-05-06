@@ -57,23 +57,4 @@ Porosity_filtered %>% group_by(Site, Replicate) %>%
 
 
 
-library(ggplot2)
-library(ggsignif)
-
-# Define manual annotation data
-anno_df <- data.frame(
-  group_var = c("A", "B", "C"), # For facets if needed
-  start = c(1, 2, 3),
-  end = c(2, 3, 4),
-  y = c(10, 12, 14),
-  label = c("NS", "***", "NS")
-)
-
-ggplot(mtcars, aes(x = factor(cyl), y = mpg)) +
-  geom_boxplot() +
-  geom_signif(
-    data = anno_df,
-    aes(xmin = start, xmax = end, y_position = y, annotations = label),
-    manual = TRUE
-  )
 
