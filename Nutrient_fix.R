@@ -23,6 +23,24 @@ library(ggtext) # for custom graph font formatting
 
 
 # Reading in files
-NH4_data = read_excel('Data\BMFL_Nutrients_Master_FIXED.xlsx',
+NH4_data = read_excel('Data\\BMFL_Nutrients_Master_FIXED.xlsx',
                       sheet = 'NH4 Data')
+NO3_data = read_excel('Data\\BMFL_Nutrients_Master_FIXED.xlsx',
+                      sheet = 'NO3 Data')
+PO4_data = read_excel('Data\\BMFL_Nutrients_Master_FIXED.xlsx',
+                      sheet = 'PO4 Data')
 
+# Creating a marker for joining
+NH4_marker = NH4_data %>% unite(col = "Marker", c("Sample Date", Site, Replicate, Notes), sep = "", remove = FALSE)
+NO3_marker = NO3_data %>% unite(col = "Marker", c("Sample Date", Site, Replicate, Notes), sep = "", remove = FALSE)
+PO4_marker = PO4_data %>% unite(col = "Marker", c("Sample Date", Site, Replicate, Notes), sep = "", remove = FALSE)
+
+# Joining Data frames
+Nutrients_combined = NH4_marker %>%
+  inner_join(NO3_marker, by = "Marker") %>%
+  inner_join(PO4_marker, by = "Marker") %>%
+  select('Sample Date', Site, Replicate, `Adjusted NH4 Concentration (μM)`,
+         `Adjusted Concentration (μM NO3)`, `Adjusted Concentration (μM PO4)`)
+
+# exporting new DF
+write_xlsx(Nutrients_combined, path = "Data/Nurient_Summary.xlsx")
