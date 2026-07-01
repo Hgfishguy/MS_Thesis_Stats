@@ -22,4 +22,7 @@ install.packages("ggtext")
 library(ggtext) # for custom graph font formatting 
 
 
+# Reading in files
+NH4_data = read_excel('Data\BMFL_Nutrients_Master_FIXED.xlsx',
+                      sheet = 'NH4 Data')
 
