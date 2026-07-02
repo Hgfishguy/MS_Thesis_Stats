@@ -24,11 +24,11 @@ library(ggtext) # for custom graph font formatting
 ### READING AND FILTERING
 
 
-Biomass_data = read_excel('/Users/suzanneguy/R_Projects/MS_Thesis_Data_Analysis/MS_Thesis_Stats/Data/BMA_Human_Impacts_Master_Datasheet.xlsx', sheet = 'Biomass')
-NH4_data = read_excel('/Users/suzanneguy/R_Projects/MS_Thesis_Data_Analysis/MS_Thesis_Stats/Data/BMA_Human_Impacts_Master_Datasheet.xlsx', sheet = 'NH4')
-NO3_data = read_excel('/Users/suzanneguy/R_Projects/MS_Thesis_Data_Analysis/MS_Thesis_Stats/Data/BMA_Human_Impacts_Master_Datasheet.xlsx', sheet = 'NO3')
-PO4_data = read_excel('/Users/suzanneguy/R_Projects/MS_Thesis_Data_Analysis/MS_Thesis_Stats/Data/BMA_Human_Impacts_Master_Datasheet.xlsx', sheet = 'PO4')
-Sediment_data = read_excel('/Users/suzanneguy/R_Projects/MS_Thesis_Data_Analysis/MS_Thesis_Stats/Data/BMA_Human_Impacts_Master_Datasheet.xlsx', sheet = 'Sediment')
+Biomass_data = read_excel('Data/BMA_Human_Impacts_Master_Datasheet.xlsx', sheet = 'Biomass')
+NH4_data = read_excel('Data/BMA_Human_Impacts_Master_Datasheet.xlsx', sheet = 'NH4')
+NO3_data = read_excel('Data/BMA_Human_Impacts_Master_Datasheet.xlsx', sheet = 'NO3')
+PO4_data = read_excel('Data/BMA_Human_Impacts_Master_Datasheet.xlsx', sheet = 'PO4')
+Sediment_data = read_excel('Data/BMA_Human_Impacts_Master_Datasheet.xlsx', sheet = 'Sediment')
 # reading in sheets by sheet
 
 
@@ -640,13 +640,13 @@ write_xlsx(DIN_combined, path = "Data/DIN_combined.xlsx")
 ### prepping for random forest analysis in chatgpt
 
 
-Biomass_forest = read_excel('/Users/suzanneguy/R_Projects/MS_Thesis_Data_Analysis/MS_Thesis_Stats/Data/BMA_Human_Impacts_Master_COPY.xlsx', sheet = 'Biomass') %>%
+Biomass_forest = read_excel('Data/BMA_Human_Impacts_Master_COPY.xlsx', sheet = 'Biomass') %>%
   filter(`Chla (ug/g)` <= 50)
-DIN_forest = read_excel('/Users/suzanneguy/R_Projects/MS_Thesis_Data_Analysis/MS_Thesis_Stats/Data/BMA_Human_Impacts_Master_COPY.xlsx', sheet = 'DIN') %>%
+DIN_forest = read_excel('Data/BMA_Human_Impacts_Master_COPY.xlsx', sheet = 'DIN') %>%
   filter(DIN_uM <= 4000)
-PO4_forest = read_excel('/Users/suzanneguy/R_Projects/MS_Thesis_Data_Analysis/MS_Thesis_Stats/Data/BMA_Human_Impacts_Master_COPY.xlsx', sheet = 'PO4') %>%
+PO4_forest = read_excel('Data/BMA_Human_Impacts_Master_COPY.xlsx', sheet = 'PO4') %>%
   filter(PO4_uM <= 100)
-Sediment_forest = read_excel('/Users/suzanneguy/R_Projects/MS_Thesis_Data_Analysis/MS_Thesis_Stats/Data/BMA_Human_Impacts_Master_COPY.xlsx', sheet = 'Sediment')
+Sediment_forest = read_excel('Data/BMA_Human_Impacts_Master_COPY.xlsx', sheet = 'Sediment')
 
 forest_joined = Biomass_forest %>%
   full_join(DIN_forest, by = c("Date", "Site", "Replicate")) %>%
@@ -742,7 +742,7 @@ Biomass_area_whole_boxplot
 
 ### Community Composition Analysis (EcoTaxa)
 
-Diversity_longer = read_excel('/Users/suzanneguy/R_Projects/MS_Thesis_Data_Analysis/MS_Thesis_Stats/Data/Ecotaxa_Data_Full_UPDATED_FEB.xlsx')
+Diversity_longer = read_excel('Data/Ecotaxa_Data_Full_UPDATED_FEB.xlsx')
 
 Diversity_wider = Diversity_longer %>%
   pivot_wider(names_from = taxonid, values_from = count)
@@ -1582,4 +1582,79 @@ ggsave(Nutrient_Ratio_plot, filename = "Figures/Nutrient_Ratio_plot.pdf", device
 DIN_t = t.test(Nutrient_mean$DIN, mu = 1, alternative = "two.sided")
 PO4_t = t.test(Nutrient_mean$PO4, mu = 1, alternative = "two.sided")
 DIN_t$p.value
+
+
+### Rewrite figures
+
+DIN_limit = DIN_combined %>%
+  filter(DIN_uM <= 5000)
+PO4_limit = PO4_filtered %>%
+  filter(Adjusted_Concentration_uM <= 100)
+
+Total_Sediment_boxplot = ggplot(data = Sediment_longer) +
+  geom_boxplot(aes(y = Percent, x = `Grain Size`, fill = `Grain Size`)) +
+  scale_fill_manual(values = c("gray", "beige", "chocolate4")) +
+  ylab("Percent Composition (%)") +
+  xlab("Grain Size") +
+  ylim(0,100) +
+  theme_bw()
+Total_Sediment_boxplot
+ggsave(Total_Sediment_boxplot, filename = "Figures/Total_Sediment_boxplot.pdf", device = "pdf", height = 5, width = 5) 
+
+
+Total_DIN_boxplot = ggplot(data = DIN_limit, aes(y = DIN_uM, x = " ")) +
+  geom_boxplot(fill = "darkturquoise") +
+  ylab(expression("DIN Concentration (" * mu * "M)")) +
+  xlab(" ") +
+  # ylim(0,5000) +
+  theme_bw()
+Total_DIN_boxplot
+ggsave(Total_DIN_boxplot, filename = "Figures/Total_DIN_boxplot.pdf", device = "pdf", height = 5, width = 2) 
+
+
+Total_PO4_boxplot = ggplot(data = PO4_limit, aes(y = Adjusted_Concentration_uM, x = "")) +
+  geom_boxplot(fill = "darkturquoise") +
+  ylab(expression("PO4 Concentration (" * mu * "M)")) +
+  xlab('') +
+  # ylim(0,100) +
+  theme_bw()
+Total_PO4_boxplot
+ggsave(Total_PO4_boxplot, filename = "Figures/Total_PO4_boxplot.pdf", device = "pdf", height = 5, width = 2) 
+
+Biomass_limit = Biomass_filtered %>%
+  filter(`Chla (ug/g)` <= 50)
+Total_Biomass_boxplot = ggplot(data = Biomass_limit) +
+  geom_boxplot(aes(y = `Chla (ug/g)`, x = " "), fill = "chartreuse3") +
+  ylab(expression("Chla Concentration ("* mu *"g/g)")) + 
+  xlab("") +
+  # ylim(0,50) +
+  theme_bw()
+Total_Biomass_boxplot
+ggsave(Total_Biomass_boxplot, filename = "Figures/Total_Biomass_boxplot.pdf", device = "pdf", height = 5, width = 2) 
+
+Total_Biomass_area_whole_boxplot = ggplot(data = Biomass_filtered) +
+  geom_boxplot(aes(y = `Chla (ug/cm2)`, x = ""), fill = "chartreuse3") +
+  ylab(expression("Chla Concentration ("* mu *"g/cm^2)")) + 
+  # ylim(0,50) +
+  xlab("") +
+  theme_bw()
+Total_Biomass_area_whole_boxplot
+ggsave(Total_Biomass_area_whole_boxplot, filename = "Figures/Total_Biomass_area_whole_boxplot.pdf", device = "pdf", height = 5, width = 2) 
+
+
+### Random forest regressions round 2
+
+
+Biomass_data_forest = LM_data_filtered %>%
+  select(!starts_with('sd_'))
+
+Diversity_data_forest = Hill_LM_data %>%
+  select(!starts_with('sd_'))
+
+
+
+
+
+
+
 
