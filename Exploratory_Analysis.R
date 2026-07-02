@@ -1651,7 +1651,9 @@ Biomass_data_forest = LM_data_filtered %>%
 Diversity_data_forest = Hill_LM_data %>%
   select(!starts_with('sd_'))
 
+write_xlsx(Biomass_data_forest, path = "Data/Biomass_data_forest.xlsx")
 
+write_xlsx(Diversity_data_forest, path = "Data/Diversity_data_forest.xlsx")
 
 
 
