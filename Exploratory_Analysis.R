@@ -1641,6 +1641,15 @@ Total_Biomass_area_whole_boxplot = ggplot(data = Biomass_filtered) +
 Total_Biomass_area_whole_boxplot
 ggsave(Total_Biomass_area_whole_boxplot, filename = "Figures/Total_Biomass_area_whole_boxplot.pdf", device = "pdf", height = 5, width = 2) 
 
+Total_Ecotaxa_diversity_barplot_sum = ggplot(data = Estuary_long, aes(x = "", y = count, fill = Genus)) + 
+  geom_bar(position = "fill", stat = "identity") + 
+  scale_y_continuous(labels = scales::percent_format()) +
+  theme_bw() +
+  ylab("Percent Composition (%)") +
+  xlab("")
+Total_Ecotaxa_diversity_barplot_sum
+ggsave(Total_Ecotaxa_diversity_barplot_sum, filename = "Figures/Total_Ecotaxa_diversity_barplot_sum.pdf", device = "pdf", height = 5, width = 5) 
+
 
 ### Random forest regressions round 2
 
@@ -1655,7 +1664,9 @@ write_xlsx(Biomass_data_forest, path = "Data/Biomass_data_forest.xlsx")
 
 write_xlsx(Diversity_data_forest, path = "Data/Diversity_data_forest.xlsx")
 
-
+Biomass_filtered %>% 
+  get_summary_stats(`Chla (ug/cm2)`, type = "mean_sd")%>%
+  mutate(cv = (sd/mean)*100)
 
 
 
