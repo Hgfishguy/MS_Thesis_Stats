@@ -218,7 +218,9 @@ Biomass_filtered %>% group_by(Estuary) %>%
   mutate(cv = (sd/mean)*100)
 # MI mean: 13.6, sd: 12.5, cv: 78.4%
 # NI mean: 15.8, sd: 15.2, cv: 66.7%
-# 
+Biomass_filtered %>% 
+  get_summary_stats(`Chla (ug/g)`, type = "mean_se")
+
 Biomass_aov = aov(`Chla (ug/g)` ~ Month + Estuary, data = Biomass_filtered)
 summary(Biomass_aov)
 # base r aov to use in further analyses (same result as rstatix RCB anova)
@@ -247,11 +249,17 @@ DIN_RB_model = DIN_combined %>% anova_test(DIN_uM ~ Month + Estuary, effect.size
 get_anova_table(DIN_RB_model) %>% p_format(digits = 3)
 # Only month seemed to have a significant affect on DIN
 
-DIN_combined %>% group_by(Estuary) %>%
+DIN_combined %>% #group_by(Estuary) %>%
   get_summary_stats(DIN_uM, type = "mean_sd") %>%
   mutate(cv = (sd/mean)*100)
 # MI mean: 1186, sd: 1090, cv: 88.7%
 # NI mean: 1201, sd: 1415, cv: 95.1%
+DIN_combined %>% 
+  get_summary_stats(DIN_uM, type = "median_iqr")
+# median: 987
+DIN_combined %>% 
+  get_summary_stats(DIN_uM, type = "mean_se")
+# SE: 44.9
 
 # PO4 RCB
 PO4_filtered %>%
@@ -271,7 +279,12 @@ PO4_filtered %>% group_by(Estuary) %>%
   mutate(cv = (sd/mean)*100)
 # MI mean: 42.3, sd: 63.7, cv: 132%
 # NI mean: 8.95, sd: 21.9, cv: 232%
-
+PO4_filtered %>% 
+  get_summary_stats(Adjusted_Concentration_uM, type = "median_iqr")
+# median: 987
+PO4_filtered %>% 
+  get_summary_stats(Adjusted_Concentration_uM, type = "mean_se")
+# SE: 44.9
 # Sediment RCBs
 
 # >500 um
@@ -314,17 +327,24 @@ Sediment_filtered %>% group_by(Estuary) %>%
   mutate(cv = (sd/mean)*100)
 # MI mean: 27.8, sd: 18.3, cv: 65.6%
 # NI mean: 2.52, sd: 4.72, cv: 187%
+Sediment_filtered %>% 
+  get_summary_stats(`>500um (%)`, type = "mean_se")
+
 Sediment_filtered %>% group_by(Estuary) %>%
   get_summary_stats(`>63um (%)`, type = "mean_sd") %>%
   mutate(cv = (sd/mean)*100)
 # MI mean: 63.4, sd: 24.4, cv: 38.4%
 # NI mean: 71.6, sd: 18.3, cv 25.5%
+Sediment_filtered %>% 
+  get_summary_stats(`>63um (%)`, type = "mean_se")
+
 Sediment_filtered %>% group_by(Estuary) %>%
-  get_summary_stats(`<63um (%)`, type = "mean_sd")%>%
+  get_summary_stats(`<63um (%)`, type = "mean_sd") %>%
   mutate(cv = (sd/mean)*100)
 # MI mean: 9.49, sd: 15.0, cv: 158%
 # NI mean: 26.5, sd: 16.9, cv: 63.9%
-
+Sediment_filtered %>% 
+  get_summary_stats(`<63um (%)`, type = "mean_se")
 
 ### Linear Regresion of BMA Responses
 
@@ -1667,7 +1687,406 @@ write_xlsx(Diversity_data_forest, path = "Data/Diversity_data_forest.xlsx")
 Biomass_filtered %>% 
   get_summary_stats(`Chla (ug/cm2)`, type = "mean_sd")%>%
   mutate(cv = (sd/mean)*100)
+Biomass_filtered %>% 
+  get_summary_stats(`Chla (ug/cm2)`, type = "mean_se")
+Hill_Estuary_full %>% 
+  get_summary_stats(Hill.0, type = "mean_se")
+Hill_Estuary_full %>% 
+  get_summary_stats(Hill.1, type = "mean_se")
+Hill_Estuary_full %>% 
+  get_summary_stats(Hill.2, type = "mean_se")
+
+# chatgpt code
+library(readxl)
+library(dplyr)
+library(tidyr)
+install.packages("caret")
+library(caret)
+install.packages("randomForest")
+library(randomForest)
+library(ggplot2)
+install.packages("openxlsx")
+library(openxlsx)
+
+set.seed(123)
+
+# -----------------------------
+# Helper functions
+# -----------------------------
+r2_calc <- function(obs, pred) {
+  1 - sum((obs - pred)^2) / sum((obs - mean(obs))^2)
+}
+
+pseudo_adjusted_r2 <- function(r2, n, p) {
+  # Pseudo-adjusted R² for random forest.
+  # This is NOT a true classical adjusted R².
+  if (n - p - 1 <= 0) return(NA_real_)
+  1 - ((1 - r2) * (n - 1) / (n - p - 1))
+}
+
+run_random_forest_analysis <- function(file_path,
+                                       sheet = 1,
+                                       response,
+                                       drop_cols = c("Month", "Site", "Estuary"),
+                                       out_prefix = "rf_output") {
+  
+  # Read data
+  df <- read_excel(file_path, sheet = sheet) %>% as.data.frame()
+  
+  # Keep only numeric predictors, excluding response and categorical columns
+  candidate_cols <- setdiff(names(df), c(response, drop_cols))
+  predictors <- candidate_cols[sapply(df[candidate_cols], is.numeric)]
+  
+  if (length(predictors) == 0) {
+    stop("No numeric predictors found after exclusions.")
+  }
+  
+  # Complete cases only
+  dat <- df[, c(response, predictors)] %>% drop_na()
+  
+  if (nrow(dat) < 5) {
+    stop("Too few complete rows after filtering.")
+  }
+  
+  x <- dat[, predictors, drop = FALSE]
+  y <- dat[[response]]
+  
+  # LOOCV random forest
+  mtry_max <- max(1, min(length(predictors), floor(sqrt(length(predictors))) + 2))
+  rf_grid <- expand.grid(mtry = 1:mtry_max)
+  
+  rf_ctrl <- trainControl(
+    method = "LOOCV",
+    savePredictions = "final"
+  )
+  
+  rf_fit <- train(
+    x = x,
+    y = y,
+    method = "rf",
+    ntree = 1000,
+    tuneGrid = rf_grid,
+    trControl = rf_ctrl,
+    importance = TRUE
+  )
+  
+  # LOOCV predictions from caret
+  rf_pred_df <- rf_fit$pred %>%
+    filter(mtry == rf_fit$bestTune$mtry) %>%
+    arrange(rowIndex)
+  
+  loocv_obs <- rf_pred_df$obs
+  loocv_pred <- rf_pred_df$pred
+  
+  rf_loocv_r2 <- r2_calc(loocv_obs, loocv_pred)
+  rf_loocv_rmse <- sqrt(mean((loocv_obs - loocv_pred)^2))
+  
+  # Training predictions from the final fitted model
+  rf_train_pred <- predict(rf_fit, newdata = x)
+  rf_train_r2 <- r2_calc(y, rf_train_pred)
+  rf_train_rmse <- sqrt(mean((y - rf_train_pred)^2))
+  rf_pseudo_adj_r2 <- pseudo_adjusted_r2(
+    r2 = rf_train_r2,
+    n = nrow(dat),
+    p = length(predictors)
+  )
+  
+  # Predicted vs observed plot uses LOOCV predictions
+  plot_df <- data.frame(
+    Observed = loocv_obs,
+    Predicted = loocv_pred
+  )
+  
+  p <- ggplot(plot_df, aes(x = Observed, y = Predicted)) +
+    geom_point(size = 2.8, alpha = 0.85) +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+    theme_bw(base_size = 12) +
+    labs(
+      title = paste("Random Forest Predicted vs Observed:", response),
+      subtitle = paste0(
+        "Training R² = ", round(rf_train_r2, 3),
+        " | Pseudo-adjusted R² = ", round(rf_pseudo_adj_r2, 3),
+        " | LOOCV R² = ", round(rf_loocv_r2, 3),
+        " | LOOCV RMSE = ", round(rf_loocv_rmse, 3)
+      ),
+      x = "Observed",
+      y = "Predicted"
+    )
+  
+# ggsave(
+  #  filename = paste0("Figures/", out_prefix, "_predicted_vs_observed.png"),
+  #  plot = p,
+  #  width = 6,
+  #  height = 5,
+  #  dpi = 300
+  # )
+  
+  # Save summary workbook
+  summary_tbl <- data.frame(
+    Response = response,
+    N = nrow(dat),
+    Predictors = paste(predictors, collapse = ", "),
+    RF_Best_mtry = rf_fit$bestTune$mtry,
+    Training_R2 = rf_train_r2,
+    Pseudo_Adjusted_R2 = rf_pseudo_adj_r2,
+    Training_RMSE = rf_train_rmse,
+    LOOCV_R2 = rf_loocv_r2,
+    LOOCV_RMSE = rf_loocv_rmse
+  )
+  
+  pred_tbl <- data.frame(
+    Observed = loocv_obs,
+    LOOCV_Predicted = loocv_pred,
+    Training_Predicted = rf_train_pred
+  )
+  
+  wb <- createWorkbook()
+  addWorksheet(wb, "Summary")
+  addWorksheet(wb, "Predictions")
+  addWorksheet(wb, "Variable_Importance")
+  
+  writeData(wb, "Summary", summary_tbl)
+  writeData(wb, "Predictions", pred_tbl)
+  writeData(wb, "Variable_Importance", as.data.frame(importance(rf_fit$finalModel)))
+  
+  # saveWorkbook(wb, paste0("Data/", out_prefix, "_model_comparison.xlsx"), overwrite = TRUE)
+  importance_df <- as.data.frame(importance(rf_fit$finalModel))
+  print(importance_df)
+  
+  return(list(
+    data = dat,
+    predictors = predictors,
+    rf_model = rf_fit,
+    training_r2 = rf_train_r2,
+    pseudo_adjusted_r2 = rf_pseudo_adj_r2,
+    training_rmse = rf_train_rmse,
+    loocv_r2 = rf_loocv_r2,
+    loocv_rmse = rf_loocv_rmse,
+    plot = p,
+    summary = summary_tbl,
+    predictions = pred_tbl
+  ))
+}
+
+# -----------------------------
+# Example use
+# -----------------------------
+biomass_rf <- run_random_forest_analysis(
+  file_path = "Data/Biomass_data_forest.xlsx",
+  sheet = 1,
+  response = "mean_Chla_ug",
+  out_prefix = "biomass_rf"
+)
+
+print(biomass_rf$summary)
+print(biomass_rf$plot)
+
+Hill0_rf <- run_random_forest_analysis(
+  file_path = "Data/Diversity_data_forest.xlsx",
+  sheet = 1,
+  response = "mean_Hill.0",
+  out_prefix = "Hill0_rf"
+)
+
+print(Hill0_rf$summary)
+print(Hill0_rf$plot)
+
+Hill1_rf <- run_random_forest_analysis(
+  file_path = "Data/Diversity_data_forest.xlsx",
+  sheet = 1,
+  response = "mean_Hill.1",
+  out_prefix = "Hill1_rf"
+)
+
+print(Hill1_rf$summary)
+print(Hill1_rf$plot)
 
 
+### Another try
+# ============================================================
+# Random Forest analysis for chlorophyll a
+# Response: mean_Chla_ug
+# Predictors: continuous variables only
+# Excludes: Month, Site, Estuary
+# Includes:
+#   - log1p transformation of response
+#   - LOOCV predictions
+#   - predicted vs observed plot with training R^2
+#   - horizontal permutation-importance plot
+# ============================================================
 
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(randomForest)
+library(caret)
 
+# ------------------------------------------------------------
+# 1. Read data
+# ------------------------------------------------------------
+dat <- read_excel("Data/Biomass_data_forest.xlsx")
+
+# ------------------------------------------------------------
+# 2. Remove categorical variables
+# ------------------------------------------------------------
+dat <- dat %>%
+  select(-Month, -Site, -Estuary)
+
+# ------------------------------------------------------------
+# 3. Keep complete cases for variables used
+# ------------------------------------------------------------
+dat <- dat %>%
+  filter(complete.cases(.))
+
+# ------------------------------------------------------------
+# 4. Optional outlier removal on response
+#    Comment this block out if you do not want outlier removal
+# ------------------------------------------------------------
+Q1 <- quantile(dat$mean_Chla_ug, 0.25, na.rm = TRUE)
+Q3 <- quantile(dat$mean_Chla_ug, 0.75, na.rm = TRUE)
+IQR_value <- IQR(dat$mean_Chla_ug, na.rm = TRUE)
+
+lower <- Q1 - 1.5 * IQR_value
+upper <- Q3 + 1.5 * IQR_value
+
+dat <- dat %>%
+  filter(mean_Chla_ug >= lower, mean_Chla_ug <= upper)
+
+# ------------------------------------------------------------
+# 5. Response transformation
+# ------------------------------------------------------------
+dat$Chla_log <- log1p(dat$mean_Chla_ug)
+
+# ------------------------------------------------------------
+# 6. Choose the predictors selected for the final model
+#    Edit this vector if you want to try different predictors
+# ------------------------------------------------------------
+chosen_vars <- c("mean_DIN_uM", "mean_PO4_uM", "mean_500um", "mean_63um")
+
+# Keep only response and selected predictors
+model_dat <- dat %>%
+  select(Chla_log, mean_Chla_ug, all_of(chosen_vars))
+
+# ------------------------------------------------------------
+# 7. Fit final random forest on transformed response
+# ------------------------------------------------------------
+set.seed(123)
+
+rf.model <- randomForest(
+  x = model_dat[, chosen_vars],
+  y = model_dat$Chla_log,
+  ntree = 500,
+  importance = TRUE
+)
+
+# ------------------------------------------------------------
+# 8. Training predictions and training R^2
+# ------------------------------------------------------------
+train_pred_log <- predict(rf.model, newdata = model_dat[, chosen_vars])
+
+train_pred <- expm1(train_pred_log)
+train_obs <- model_dat$mean_Chla_ug
+
+train_R2 <- cor(train_obs, train_pred)^2
+
+# ------------------------------------------------------------
+# 9. Leave-one-out cross-validation predictions
+# ------------------------------------------------------------
+loo_pred <- rep(NA, nrow(model_dat))
+
+for (i in seq_len(nrow(model_dat))) {
+  train_idx <- setdiff(seq_len(nrow(model_dat)), i)
+  
+  rf_loo <- randomForest(
+    x = model_dat[train_idx, chosen_vars],
+    y = model_dat$Chla_log[train_idx],
+    ntree = 500,
+    importance = FALSE
+  )
+  
+  loo_pred[i] <- expm1(
+    predict(rf_loo, newdata = model_dat[i, chosen_vars, drop = FALSE])
+  )
+}
+
+cv_R2 <- cor(train_obs, loo_pred)^2
+cv_RMSE <- sqrt(mean((train_obs - loo_pred)^2))
+cv_MAE <- mean(abs(train_obs - loo_pred))
+
+# ------------------------------------------------------------
+# 10. Save model performance metrics
+# ------------------------------------------------------------
+metrics <- data.frame(
+  Metric = c("Training R2", "LOOCV R2", "LOOCV RMSE", "LOOCV MAE"),
+  Value = c(train_R2, cv_R2, cv_RMSE, cv_MAE)
+)
+
+print(metrics)
+
+# write.csv(metrics, "rf_model_metrics.csv", row.names = FALSE)
+
+# ------------------------------------------------------------
+# 11. Predicted vs observed plot
+# ------------------------------------------------------------
+p1 <- ggplot(data.frame(Observed = train_obs, Predicted = train_pred),
+             aes(x = Observed, y = Predicted)) +
+  geom_point(size = 2) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed") +
+  theme_classic(base_size = 14) +
+  labs(
+    x = "Observed chlorophyll a (ug/L)",
+    y = "Predicted chlorophyll a (ug/L)",
+    title = "Random forest predicted vs observed"
+  ) +
+  annotate(
+    "text",
+    x = min(train_obs, na.rm = TRUE),
+    y = max(train_pred, na.rm = TRUE),
+    hjust = 0,
+    vjust = 1,
+    label = paste0(
+      "Training R^2 = ", round(train_R2, 3), "\n",
+      "LOOCV R^2 = ", round(cv_R2, 3), "\n",
+      "LOOCV RMSE = ", round(cv_RMSE, 3)
+    )
+  )
+
+print(p1)
+
+# ggsave("predicted_vs_observed_rf.png", p1, width = 7, height = 6, dpi = 300)
+
+# ------------------------------------------------------------
+# 12. Permutation importance plot
+#     For regression randomForest models, type = 1 gives %IncMSE
+# ------------------------------------------------------------
+imp <- importance(rf.model, type = 1)
+
+imp_df <- data.frame(
+  Variable = rownames(imp),
+  PermImportance = imp[, 1]
+)
+
+# Keep only chosen predictors and order from low to high
+imp_df <- imp_df %>%
+  filter(Variable %in% chosen_vars) %>%
+  arrange(PermImportance)
+
+p2 <- ggplot(imp_df, aes(x = reorder(Variable, PermImportance),
+                         y = PermImportance)) +
+  geom_col() +
+  coord_flip() +
+  theme_classic(base_size = 14) +
+  labs(
+    x = "Predictor",
+    y = "Permutation importance (%IncMSE)",
+    title = "Random forest permutation importance"
+  )
+
+print(p2)
+
+# ggsave("permutation_importance_rf.png", p2, width = 7, height = 5, dpi = 300)
+
+# ------------------------------------------------------------
+# 13. Variable importance table
+# ------------------------------------------------------------
+# write.csv(imp_df, "rf_permutation_importance.csv", row.names = FALSE)
