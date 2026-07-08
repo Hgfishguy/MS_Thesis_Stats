@@ -8,6 +8,9 @@
 
 library(ggplot2)
 library(randomForest)
+install.packages("patchwork")
+library(patchwork)
+
 
 rf_subset_analysis <- function(data,
                                response_var,
@@ -329,6 +332,8 @@ rf_subset_analysis <- function(data,
 # print(out$predicted_vs_observed_plot)
 # print(out$permutation_importance_plot)
 
+# Biomass RF
+
 Biomass_rf <- rf_subset_analysis(
   data = read_excel("Data/Biomass_data_forest.xlsx"),
   response_var = "mean_Chla_ug",
@@ -342,9 +347,37 @@ Biomass_rf <- rf_subset_analysis(
 Biomass_rf$best_predictors
 Biomass_rf$training_metrics
 Biomass_rf$oob_metrics
+Biomass_rf$best_subset_table
+Biomass_rf$importance_table
+
 
 print(Biomass_rf$predicted_vs_observed_plot)
 print(Biomass_rf$permutation_importance_plot)
+
+Biomass_pred_final = Biomass_rf$predicted_vs_observed_plot +
+  labs(
+    x = expression("Observed chlorophyll " * italic(a) * " (" * mu * "g/g)"),
+    y = expression("Predicted chlorophyll " * italic(a) * " (" * mu * "g/g)"),
+    title = ""
+  ) +
+  theme_bw()
+Biomass_pred_final
+
+Biomass_importance_final = Biomass_rf$permutation_importance_plot +
+  scale_x_discrete(
+    labels = c(
+      mean_less63um = expression("% Clay"),
+      mean_PO4_uM = expression(PO[4]^{"3-"} * " (" * mu * "M)")
+    )
+  ) +
+  labs(
+    x = expression("Predictor of chlorophyll " * italic(a) * " (" * mu * "g/g)"),
+    title = ""
+  ) +
+  theme_bw()
+Biomass_importance_final
+
+# Hill 0 Diversity RF
 
 Hill_0_rf <- rf_subset_analysis(
   data = read_excel("Data/Diversity_data_forest.xlsx"),
@@ -359,9 +392,36 @@ Hill_0_rf <- rf_subset_analysis(
 Hill_0_rf$best_predictors
 Hill_0_rf$training_metrics
 Hill_0_rf$oob_metrics
+Hill_0_rf$best_subset_table
+Hill_0_rf$importance_table
 
 print(Hill_0_rf$predicted_vs_observed_plot)
 print(Hill_0_rf$permutation_importance_plot)
+
+Hill0_pred_final = Hill_0_rf$predicted_vs_observed_plot +
+  labs(
+    x = "Observed Hill Diversity (q = 0)",
+    y = "Predicted Hill Diversity (q = 0)",
+    title = ""
+  ) +
+  theme_bw()
+Hill0_pred_final
+
+Hill0_importance_final = Hill_0_rf$permutation_importance_plot +
+  scale_x_discrete(
+    labels = c(
+      mean_DIN_uM = expression("DIN" * " (" * mu * "M)"),
+      mean_PO4_uM = expression(PO[4]^{"3-"} * " (" * mu * "M)")
+    )
+  ) +
+  labs(
+    x = "Predictor of Hill Diversity (q = 0)",
+    title = ""
+  ) +
+  theme_bw()
+Hill0_importance_final
+
+# Hill 1 Diversity RF
 
 Hill_1_rf <- rf_subset_analysis(
   data = read_excel("Data/Diversity_data_forest.xlsx"),
@@ -376,9 +436,37 @@ Hill_1_rf <- rf_subset_analysis(
 Hill_1_rf$best_predictors
 Hill_1_rf$training_metrics
 Hill_1_rf$oob_metrics
+Hill_1_rf$best_subset_table
+Hill_1_rf$importance_table
 
 print(Hill_1_rf$predicted_vs_observed_plot)
 print(Hill_1_rf$permutation_importance_plot)
+
+Hill1_pred_final = Hill_1_rf$predicted_vs_observed_plot +
+  labs(
+    x = "Observed Hill Diversity (q = 1)",
+    y = "Predicted Hill Diversity (q = 1)",
+    title = ""
+  ) +
+  theme_bw()
+Hill1_pred_final
+
+Hill1_importance_final = Hill_1_rf$permutation_importance_plot +
+  scale_x_discrete(
+    labels = c(
+      mean_less63um = expression("% Clay"),
+      mean_DIN_uM = expression("DIN" * " (" * mu * "M)"),
+      mean_PO4_uM = expression(PO[4]^{"3-"} * " (" * mu * "M)")
+    )
+  ) +
+  labs(
+    x = "Predictor of Hill Diversity (q = 1)",
+    title = ""
+  ) +
+  theme_bw()
+Hill1_importance_final
+
+# Hill 2 Diversity RF
 
 Hill_2_rf <- rf_subset_analysis(
   data = read_excel("Data/Diversity_data_forest.xlsx"),
@@ -393,6 +481,59 @@ Hill_2_rf <- rf_subset_analysis(
 Hill_2_rf$best_predictors
 Hill_2_rf$training_metrics
 Hill_2_rf$oob_metrics
+Hill_2_rf$best_subset_table
+Hill_2_rf$importance_table
 
 print(Hill_2_rf$predicted_vs_observed_plot)
 print(Hill_2_rf$permutation_importance_plot)
+
+Hill2_pred_final = Hill_2_rf$predicted_vs_observed_plot +
+  labs(
+    x = "Observed Hill Diversity (q = 2)",
+    y = "Predicted Hill Diversity (q = 2)",
+    title = ""
+  ) +
+  theme_bw()
+Hill2_pred_final
+
+Hill2_importance_final = Hill_2_rf$permutation_importance_plot +
+  scale_x_discrete(
+    labels = c(
+      mean_less63um = expression("% Clay"),
+      mean_PO4_uM = expression(PO[4]^{"3-"} * " (" * mu * "M)")
+    )
+  ) +
+  labs(
+    x = "Predictor of Hill Diversity (q = 2)",
+    title = ""
+  ) +
+  theme_bw()
+Hill2_importance_final
+
+
+ggsave(Biomass_pred_final, filename = "Figures/Biomass_pred_final.jpg", device = "jpg", height = 5, width = 5) 
+ggsave(Biomass_importance_final, filename = "Figures/Biomass_importance_final.jpg", device = "jpg", height = 5, width = 5) 
+ggsave(Hill0_pred_final, filename = "Figures/Hill0_pred_final.jpg", device = "jpg", height = 5, width = 5) 
+ggsave(Hill0_importance_final, filename = "Figures/Hill0_importance_final.jpg", device = "jpg", height = 5, width = 5) 
+ggsave(Hill1_pred_final, filename = "Figures/Hill1_pred_final.jpg", device = "jpg", height = 5, width = 5) 
+ggsave(Hill1_importance_final, filename = "Figures/Hill1_importance_final.jpg", device = "jpg", height = 5, width = 5) 
+ggsave(Hill2_pred_final, filename = "Figures/Hill2_pred_final.jpg", device = "jpg", height = 5, width = 5) 
+ggsave(Hill2_importance_final, filename = "Figures/Hill2_importance_final.jpg", device = "jpg", height = 5, width = 5) 
+
+Biomass_RF_Figure = Biomass_pred_final + Biomass_importance_final
+Hill0_RF_Figure = Hill0_pred_final + Hill0_importance_final
+Hill1_RF_Figure = Hill1_pred_final + Hill1_importance_final
+Hill2_RF_Figure = Hill2_pred_final + Hill2_importance_final
+# patchwork package joining of figures
+
+ggsave(Biomass_RF_Figure, filename = "Figures/Biomass_RF_Figure.jpg", device = "jpg", height = 5, width = 10) 
+ggsave(Hill0_RF_Figure, filename = "Figures/Hill0_RF_Figure.jpg", device = "jpg", height = 5, width = 10) 
+ggsave(Hill1_RF_Figure, filename = "Figures/Hill1_RF_Figure.jpg", device = "jpg", height = 5, width = 10) 
+ggsave(Hill2_RF_Figure, filename = "Figures/Hill2_RF_Figure.jpg", device = "jpg", height = 5, width = 10) 
+
+
+
+
+
+
+
